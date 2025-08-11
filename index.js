@@ -144,6 +144,202 @@ function getFallbackReply(lang, partOfDay, weekend) {
   return options[Math.floor(Math.random() * options.length)];
 }
 
+// Social prioritization system
+async function refreshFollowersCache(ttlHours = 24) {
+  try {
+    const storage = await loadStorage();
+    
+    // Initialize cache if missing
+    if (!storage.followersCache) {
+      storage.followersCache = { updatedAt: 0, ids: [] };
+    }
+    
+    // Check if cache is still valid
+    const now = Date.now();
+    const cacheAge = now - storage.followersCache.updatedAt;
+    const ttlMs = ttlHours * 3600 * 1000;
+    
+    if (cacheAge < ttlMs) {
+      console.log(`👥 Using cached followers (${storage.followersCache.ids.length} followers, age: ${Math.round(cacheAge / 3600000)}h)`);
+      return new Set(storage.followersCache.ids);
+    }
+    
+    // Refresh cache
+    console.log('🔄 Refreshing followers cache...');
+    const userId = await ensureMyUserId();
+    const followerIds = [];
+    
+    let paginationToken = undefined;
+    let pageCount = 0;
+    const maxPages = 10; // Safety limit
+    
+    do {
+      try {
+        const response = await twitter.v2.followers(userId, {
+          max_results: 1000,
+          pagination_token: paginationToken
+        });
+        
+        if (response.data) {
+          followerIds.push(...response.data.map(user => user.id));
+          console.log(`📄 Fetched page ${++pageCount}: ${response.data.length} followers`);
+        }
+        
+        paginationToken = response.meta?.next_token;
+        
+        // Rate limit protection
+        if (paginationToken && pageCount < maxPages) {
+          await delay(1000, 2000); // 1-2 second delay between pages
+        }
+        
+      } catch (error) {
+        if (error.code === 429) {
+          console.log('⏰ Hit rate limit while fetching followers, using partial cache');
+          break;
+        }
+        throw error;
+      }
+    } while (paginationToken && pageCount < maxPages);
+    
+    // Update storage
+    storage.followersCache = {
+      updatedAt: now,
+      ids: followerIds
+    };
+    
+    await saveStorage(storage);
+    console.log(`✅ Cached ${followerIds.length} followers`);
+    
+    return new Set(followerIds);
+    
+  } catch (error) {
+    if (error.code === 403) {
+      console.log('⚠️  Followers API requires elevated access - using follower count only');
+    } else {
+      console.error('❌ Failed to refresh followers cache:', error.message);
+    }
+    // Return empty set on error
+    return new Set();
+  }
+}
+
+async function refreshFollowingCache(ttlHours = 24) {
+  try {
+    const storage = await loadStorage();
+    
+    // Initialize cache if missing
+    if (!storage.followingCache) {
+      storage.followingCache = { updatedAt: 0, ids: [] };
+    }
+    
+    // Check if cache is still valid
+    const now = Date.now();
+    const cacheAge = now - storage.followingCache.updatedAt;
+    const ttlMs = ttlHours * 3600 * 1000;
+    
+    if (cacheAge < ttlMs) {
+      console.log(`👤 Using cached following (${storage.followingCache.ids.length} following, age: ${Math.round(cacheAge / 3600000)}h)`);
+      return new Set(storage.followingCache.ids);
+    }
+    
+    // Refresh cache
+    console.log('🔄 Refreshing following cache...');
+    const userId = await ensureMyUserId();
+    const followingIds = [];
+    
+    let paginationToken = undefined;
+    let pageCount = 0;
+    const maxPages = 10; // Safety limit
+    
+    do {
+      try {
+        const response = await twitter.v2.following(userId, {
+          max_results: 1000,
+          pagination_token: paginationToken
+        });
+        
+        if (response.data) {
+          followingIds.push(...response.data.map(user => user.id));
+          console.log(`📄 Fetched page ${++pageCount}: ${response.data.length} following`);
+        }
+        
+        paginationToken = response.meta?.next_token;
+        
+        // Rate limit protection
+        if (paginationToken && pageCount < maxPages) {
+          await delay(1000, 2000); // 1-2 second delay between pages
+        }
+        
+      } catch (error) {
+        if (error.code === 429) {
+          console.log('⏰ Hit rate limit while fetching following, using partial cache');
+          break;
+        }
+        throw error;
+      }
+    } while (paginationToken && pageCount < maxPages);
+    
+    // Update storage
+    storage.followingCache = {
+      updatedAt: now,
+      ids: followingIds
+    };
+    
+    await saveStorage(storage);
+    console.log(`✅ Cached ${followingIds.length} following`);
+    
+    return new Set(followingIds);
+    
+  } catch (error) {
+    if (error.code === 403) {
+      console.log('⚠️  Following API requires elevated access - using follower count only');
+    } else {
+      console.error('❌ Failed to refresh following cache:', error.message);
+    }
+    // Return empty set on error
+    return new Set();
+  }
+}
+
+function calculatePriority(tweet, userById, followersSet, followingSet, minFollowers) {
+  const authorId = tweet.author_id;
+  const user = userById[authorId];
+  const followersCount = user?.public_metrics?.followers_count || 0;
+  
+  const isFollower = followersSet.has(authorId);
+  const isFollowing = followingSet.has(authorId);
+  
+  let bucket = 4; // default "others"
+  let bucketName = "others";
+  
+  if (isFollower && isFollowing) {
+    bucket = 0;
+    bucketName = "mutual";
+  } else if (isFollower) {
+    bucket = 1;
+    bucketName = "follower";
+  } else if (isFollowing) {
+    bucket = 2;
+    bucketName = "following";
+  } else if (followersCount >= minFollowers) {
+    bucket = 3;
+    bucketName = "high-reach";
+  }
+  
+  const secondary = -followersCount; // Higher follower count first (negative for ASC sort)
+  const createdAt = Date.parse(tweet.created_at || 0);
+  
+  return { 
+    bucket, 
+    bucketName,
+    secondary, 
+    createdAt,
+    followersCount,
+    isFollower,
+    isFollowing
+  };
+}
+
 // Bot Personalities - Easy to switch!
 const PERSONALITIES = {
   friendly: {
@@ -403,14 +599,17 @@ function parseArgs() {
   const config = {
     mode: 'b',
     ids: [],
-    limit: 5,
+    limit: 10,
     dry: false,
     testMode: false,  // --test flag for test mode
     realApi: false,   // --real flag to force real API usage
     score: false,     // --score flag for metrics collection
     ageMinutes: 60,   // --age=N for score collection
     forceLang: null,  // --forceLang=es to override detection
-    forceTime: null   // --forceTime=weekend|weekday to override detection
+    forceTime: null,  // --forceTime=weekend|weekday to override detection
+    minFollowers: parseInt(process.env.MIN_FOLLOWERS) || 500, // --minFollowers=N
+    refreshFollowers: false, // --refreshFollowers to bypass cache TTL
+    refreshFollowing: false  // --refreshFollowing to bypass cache TTL
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -427,6 +626,8 @@ function parseArgs() {
       config.forceLang = arg.split('=')[1];
     } else if (arg.startsWith('--forceTime=')) {
       config.forceTime = arg.split('=')[1];
+    } else if (arg.startsWith('--minFollowers=')) {
+      config.minFollowers = parseInt(arg.split('=')[1]);
     } else if (arg === '--dry') {
       config.dry = true;
     } else if (arg === '--test') {
@@ -435,6 +636,10 @@ function parseArgs() {
       config.realApi = true;
     } else if (arg === '--score') {
       config.score = true;
+    } else if (arg === '--refreshFollowers') {
+      config.refreshFollowers = true;
+    } else if (arg === '--refreshFollowing') {
+      config.refreshFollowing = true;
     }
   }
 
@@ -607,8 +812,9 @@ async function runModeB(config, storage) {
       const searchParams = {
         query: '(gm OR gn) -is:reply -is:retweet -has:links lang:en',
         max_results: 10,
-        expansions: 'author_id',
-        'tweet.fields': 'author_id,created_at,text'
+        expansions: ['author_id'],
+        'tweet.fields': ['author_id', 'created_at', 'text'],
+        'user.fields': ['public_metrics', 'verified']
       };
       
       if (storage.sinceId) {
@@ -619,6 +825,15 @@ async function runModeB(config, storage) {
       
       tweets = response._realData?.data || [];
       meta = response._realData?.meta;
+      const includes = response._realData?.includes;
+      
+      // Build userById map for priority calculation
+      const userById = {};
+      if (includes?.users) {
+        includes.users.forEach(user => {
+          userById[user.id] = user;
+        });
+      }
       
       // Add author_id field to each tweet (it seems to be missing from basic search)
       tweets = tweets.map(tweet => ({
@@ -626,10 +841,40 @@ async function runModeB(config, storage) {
         author_id: tweet.author_id || 'unknown_user_' + Math.random().toString(36).substr(2, 9)
       }));
       
-      // Sort by ID to ensure we process newest tweets first (higher IDs = newer)
-      tweets.sort((a, b) => b.id.localeCompare(a.id));
+      // Apply social prioritization
+      console.log('🔄 Applying social prioritization...');
+      const followersSet = await refreshFollowersCache(config.refreshFollowers ? 0 : 24);
+      const followingSet = await refreshFollowingCache(config.refreshFollowing ? 0 : 24);
+      
+      // Calculate priority for each tweet
+      const prioritizedTweets = tweets.map(tweet => ({
+        ...tweet,
+        priority: calculatePriority(tweet, userById, followersSet, followingSet, config.minFollowers)
+      }));
+      
+      // Sort by priority: bucket ASC, then secondary ASC (higher followers first), then createdAt DESC (newer first)
+      prioritizedTweets.sort((a, b) => {
+        if (a.priority.bucket !== b.priority.bucket) {
+          return a.priority.bucket - b.priority.bucket;
+        }
+        if (a.priority.secondary !== b.priority.secondary) {
+          return a.priority.secondary - b.priority.secondary;
+        }
+        return b.priority.createdAt - a.priority.createdAt;
+      });
+      
+      tweets = prioritizedTweets;
       
       console.log(`✅ Successfully found ${tweets.length} tweets from paid API!`);
+      console.log('📊 Priority breakdown:');
+      const bucketCounts = {};
+      tweets.forEach(tweet => {
+        const bucket = tweet.priority.bucketName;
+        bucketCounts[bucket] = (bucketCounts[bucket] || 0) + 1;
+      });
+      Object.entries(bucketCounts).forEach(([bucket, count]) => {
+        console.log(`  ${bucket}: ${count} tweets`);
+      });
       
       if (!tweets || tweets.length === 0) {
         console.log('📭 No new tweets found');
@@ -653,7 +898,12 @@ async function runModeB(config, storage) {
   for (const tweet of tweets) {
     if (repliedCount >= config.limit) break;
     
-    console.log(`📱 Processing tweet ${tweet.id}: "${tweet.text}"`);
+    // Show priority information
+    const priorityInfo = tweet.priority 
+      ? `prio[${tweet.priority.bucket}:${tweet.priority.bucketName}] followers=${tweet.priority.followersCount} followerOfMe=${tweet.priority.isFollower} tweet=${tweet.id}`
+      : `tweet=${tweet.id}`;
+    
+    console.log(`📱 Processing ${priorityInfo}: "${tweet.text}"`);
     
     if (storage.repliedTweetIds.has(tweet.id)) {
       console.log(`⏭️  Already replied to ${tweet.id}`);
