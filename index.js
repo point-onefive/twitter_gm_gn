@@ -16,6 +16,134 @@ const SENSITIVE_KEYWORDS = [
   'war', 'shooting', 'layoffs', 'politics', 'election'
 ];
 
+// Language support
+const SUPPORTED_LANGUAGES = ['en', 'es', 'pt', 'fr', 'de', 'it'];
+
+// Language detection utilities
+function detectLanguage(tweet) {
+  const lang = (tweet.lang || 'en').toLowerCase();
+  return SUPPORTED_LANGUAGES.includes(lang) ? lang : 'en';
+}
+
+function detectPartOfDay(text) {
+  const morning = /\b(gm|good morning|buenos d[ií]as?|bom dia|guten morgen|bonjour)\b/i;
+  const night = /\b(gn|good night|buenas noches?|boa noite|gute nacht|bonne nuit)\b/i;
+  
+  if (morning.test(text)) return 'morning';
+  if (night.test(text)) return 'night';
+  return 'unknown';
+}
+
+function isWeekend(createdAtISO) {
+  const date = new Date(createdAtISO);
+  const dayOfWeek = date.getUTCDay(); // 0 = Sunday, 6 = Saturday
+  return dayOfWeek === 0 || dayOfWeek === 6;
+}
+
+function hasEmoji(text) {
+  // Test for common emoji ranges
+  const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u;
+  return emojiRegex.test(text);
+}
+
+// Handcrafted fallbacks by language
+const FALLBACKS = {
+  en: {
+    morning: { 
+      weekday: ["New day, new wins.", "Momentum starts now.", "Let's make moves.", "Rise and grind."],
+      weekend: ["Easy pace today.", "Weekend vibes.", "Fresh start weekend.", "Enjoy the day."] 
+    },
+    night: { 
+      weekday: ["Reset for tomorrow.", "Rest up, champion.", "Prep for wins.", "Sleep well."],
+      weekend: ["Unwind well.", "Recharge time.", "Weekend rest.", "Peaceful night."] 
+    }
+  },
+  es: {
+    morning: { 
+      weekday: ["Nuevo día, nuevas metas.", "A por el día.", "Vamos con todo.", "Buenos días."],
+      weekend: ["Fin de semana genial.", "Relájate y disfruta.", "Buenos días.", "Tiempo libre."] 
+    },
+    night: { 
+      weekday: ["Descansar bien.", "Preparar mañana.", "Buenas noches.", "A recargar."],
+      weekend: ["Relajarse bien.", "Noche tranquila.", "Buen descanso.", "Buenas noches."] 
+    }
+  },
+  pt: {
+    morning: { 
+      weekday: ["Novo dia, novas metas.", "Vamos em frente.", "Bom dia!", "Energia total."],
+      weekend: ["Fim de semana bom.", "Relaxar e curtir.", "Bom dia!", "Tempo livre."] 
+    },
+    night: { 
+      weekday: ["Descansar bem.", "Preparar amanhã.", "Boa noite!", "Recarregar."],
+      weekend: ["Relaxar bem.", "Noite tranquila.", "Boa noite!", "Bom descanso."] 
+    }
+  },
+  fr: {
+    morning: { 
+      weekday: ["Nouveau jour, nouveaux buts.", "Allons-y!", "Bonjour!", "Énergie positive."],
+      weekend: ["Bon week-end.", "Détente et plaisir.", "Bonjour!", "Temps libre."] 
+    },
+    night: { 
+      weekday: ["Bien se reposer.", "Préparer demain.", "Bonne nuit!", "Recharger."],
+      weekend: ["Bien se détendre.", "Nuit paisible.", "Bonne nuit!", "Bon repos."] 
+    }
+  },
+  de: {
+    morning: { 
+      weekday: ["Neuer Tag, neue Ziele.", "Los geht's!", "Guten Morgen!", "Volle Energie."],
+      weekend: ["Schönes Wochenende.", "Entspannen und genießen.", "Guten Morgen!", "Freie Zeit."] 
+    },
+    night: { 
+      weekday: ["Gut ausruhen.", "Morgen vorbereiten.", "Gute Nacht!", "Aufladen."],
+      weekend: ["Gut entspannen.", "Ruhige Nacht.", "Gute Nacht!", "Gute Erholung."] 
+    }
+  },
+  it: {
+    morning: { 
+      weekday: ["Nuovo giorno, nuovi obiettivi.", "Andiamo!", "Buongiorno!", "Energia piena."],
+      weekend: ["Buon weekend.", "Rilassarsi e divertirsi.", "Buongiorno!", "Tempo libero."] 
+    },
+    night: { 
+      weekday: ["Riposare bene.", "Preparare domani.", "Buonanotte!", "Ricaricare."],
+      weekend: ["Rilassarsi bene.", "Notte tranquilla.", "Buonanotte!", "Buon riposo."] 
+    }
+  }
+};
+
+// Build system prompt based on language and context
+function buildSystemPrompt({ lang, partOfDay, weekend, allowEmoji }) {
+  const emojiStyle = allowEmoji ? "allow 0-1 emoji" : "no emoji";
+  
+  let toneGuidance;
+  if (partOfDay === 'morning') {
+    toneGuidance = weekend 
+      ? "light, reset, enjoy the day"
+      : "energetic, momentum, focus";
+  } else if (partOfDay === 'night') {
+    toneGuidance = weekend
+      ? "relax, recharge, gratitude" 
+      : "wind-down, prep for tomorrow";
+  } else {
+    toneGuidance = "friendly, supportive";
+  }
+  
+  return `You write one-line replies to GM/GN tweets in ${lang}.
+Keep under 12 words. Mirror emoji style: ${emojiStyle}.
+Tone: ${toneGuidance}.
+If sensitive or off-topic, output exactly: SKIP.
+No hashtags unless the original uses them.`;
+}
+
+// Get fallback reply
+function getFallbackReply(lang, partOfDay, weekend) {
+  const langFallbacks = FALLBACKS[lang] || FALLBACKS.en;
+  const timeOfDay = partOfDay === 'unknown' ? 'morning' : partOfDay;
+  const timeSlot = weekend ? 'weekend' : 'weekday';
+  
+  const options = langFallbacks[timeOfDay]?.[timeSlot] || langFallbacks.morning.weekday;
+  return options[Math.floor(Math.random() * options.length)];
+}
+
 // Bot Personalities - Easy to switch!
 const PERSONALITIES = {
   friendly: {
@@ -280,7 +408,9 @@ function parseArgs() {
     testMode: false,  // --test flag for test mode
     realApi: false,   // --real flag to force real API usage
     score: false,     // --score flag for metrics collection
-    ageMinutes: 60    // --age=N for score collection
+    ageMinutes: 60,   // --age=N for score collection
+    forceLang: null,  // --forceLang=es to override detection
+    forceTime: null   // --forceTime=weekend|weekday to override detection
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -293,6 +423,10 @@ function parseArgs() {
       config.limit = parseInt(arg.split('=')[1]);
     } else if (arg.startsWith('--age=')) {
       config.ageMinutes = parseInt(arg.split('=')[1]);
+    } else if (arg.startsWith('--forceLang=')) {
+      config.forceLang = arg.split('=')[1];
+    } else if (arg.startsWith('--forceTime=')) {
+      config.forceTime = arg.split('=')[1];
     } else if (arg === '--dry') {
       config.dry = true;
     } else if (arg === '--test') {
@@ -343,8 +477,18 @@ function hasRepliedRecently(userId, repliedUserIds) {
   return hoursSince < 48;
 }
 
-async function generateReply(tweetText, useTestMode = false) {
+async function generateReply(tweet, useTestMode = false, config = {}) {
   try {
+    // Compute language and context
+    const lang = config.forceLang || detectLanguage(tweet);
+    const partOfDay = detectPartOfDay(tweet.text);
+    const weekend = config.forceTime 
+      ? config.forceTime === 'weekend' 
+      : isWeekend(tweet.created_at);
+    const allowEmoji = hasEmoji(tweet.text);
+    
+    console.log(`🌍 Context: lang=${lang} part=${partOfDay} weekend=${weekend} allowEmoji=${allowEmoji}`);
+    
     if (useTestMode) {
       const testReplies = [
         "Rise and conquer! What's your first win today? 💪",
@@ -364,6 +508,9 @@ async function generateReply(tweetText, useTestMode = false) {
       return randomReply;
     }
     
+    // Build context-aware system prompt
+    const systemPrompt = buildSystemPrompt({ lang, partOfDay, weekend, allowEmoji });
+    
     // Use real OpenAI API
     console.log('🤖 Generating AI reply...');
     const response = await openai.chat.completions.create({
@@ -371,16 +518,11 @@ async function generateReply(tweetText, useTestMode = false) {
       messages: [
         {
           role: 'system',
-          content: `You write natural, conversational replies to "gm/gn" tweets. Keep under 15 words.
-Be genuinely supportive and friendly. Include questions 40% of the time to drive engagement.
-Use at most ONE emoji per reply, or none at all. Sound like a real person, not a bot.
-Be authentic and casual. Avoid being overly enthusiastic or salesy.
-If the tweet is sensitive/negative/controversial, output exactly: SKIP.
-Examples: "Morning! What's got you excited today?", "Hope you have a great day ahead ✨", "Good night! Sleep well", "What's your plan for today?"`
+          content: systemPrompt
         },
         {
           role: 'user',
-          content: `Reply to this tweet: "${tweetText}"`
+          content: `Reply to this tweet: "${tweet.text}"`
         }
       ],
       temperature: 0.8,
@@ -390,13 +532,20 @@ Examples: "Morning! What's got you excited today?", "Hope you have a great day a
     const reply = response.choices[0]?.message?.content?.trim() || '';
     
     if (!reply || reply === 'SKIP' || reply.length > 140) {
-      return null;
+      console.log('🔄 AI reply was SKIP or invalid, using fallback...');
+      return getFallbackReply(lang, partOfDay, weekend);
     }
     
     return reply;
   } catch (error) {
     console.error('Error generating reply:', error.message);
-    return null;
+    console.log('🔄 Error occurred, using fallback...');
+    const lang = config.forceLang || detectLanguage(tweet);
+    const partOfDay = detectPartOfDay(tweet.text);
+    const weekend = config.forceTime 
+      ? config.forceTime === 'weekend' 
+      : isWeekend(tweet.created_at);
+    return getFallbackReply(lang, partOfDay, weekend);
   }
 }
 
@@ -522,7 +671,7 @@ async function runModeB(config, storage) {
       continue;
     }
     
-    const replyText = await generateReply(tweet.text, config.testMode);
+    const replyText = await generateReply(tweet, config.testMode, config);
     if (!replyText) {
       console.log(`⏭️  No suitable reply generated for ${tweet.id}`);
       continue;
