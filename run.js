@@ -124,10 +124,13 @@ async function saveCloudStorage(storage) {
   }
 }
 
-// Import the main bot runner
-import('./index.js').then(async (botModule) => {
+// Main execution
+async function runAutomation() {
   try {
     console.log('🤖 Starting automated GM/GN bot run...');
+    
+    // Import the bot module
+    const botModule = await import('./index.js');
     
     // Configuration from environment
     const config = {
@@ -182,21 +185,16 @@ import('./index.js').then(async (botModule) => {
     if (!storage.followersCache) storage.followersCache = { updatedAt: 0, ids: [] };
     if (!storage.followingCache) storage.followingCache = { updatedAt: 0, ids: [] };
     
-    // Override the bot's save function to use cloud storage
-    const originalSaveStorage = botModule.saveStorage;
-    if (process.env.UPSTASH_URL && process.env.UPSTASH_TOKEN) {
-      // Replace with cloud save function
-      botModule.saveStorage = saveCloudStorage;
-    }
-    
-    // Run the bot
+    // Run the bot with our config and storage
     await botModule.runModeB(config, storage);
     
-    // Final save
+    // Save the updated storage
     if (process.env.UPSTASH_URL && process.env.UPSTASH_TOKEN) {
       await saveCloudStorage(storage);
+      console.log('✅ Final state saved to Upstash');
     } else {
-      await originalSaveStorage(storage);
+      await botModule.saveStorage(storage);
+      console.log('✅ Final state saved locally');
     }
     
     console.log('✅ Automated bot run completed successfully');
@@ -206,7 +204,7 @@ import('./index.js').then(async (botModule) => {
     console.error('❌ Automated bot run failed:', error);
     process.exit(1);
   }
-}).catch(error => {
-  console.error('❌ Failed to import bot module:', error);
-  process.exit(1);
-});
+}
+
+// Run the automation
+runAutomation();
