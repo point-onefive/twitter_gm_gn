@@ -1,0 +1,21 @@
+{
+  "name": "twitter-gm-gn-bot",
+  "version": "1.0.0",
+  "description": "A Node.js bot that replies to 'gm' and 'gn' tweets with uplifting messages",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test-mode": "node index.js --mode=a --dry",
+    "live-mode": "node index.js --mode=b --limit=5",
+    "dry-run": "node index.js --mode=b --dry --limit=3"
+  },
+  "keywords": ["twitter", "bot", "engagement", "automation"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "twitter-api-v2": "^1.15.2",
+    "openai": "^4.20.1",
+    "dotenv": "^16.3.1"
+  }
+}
