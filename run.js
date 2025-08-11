@@ -180,10 +180,18 @@ async function runAutomation() {
       }
     }
     
-    // Ensure storage has all required fields
+    // Ensure storage has all required fields and proper types
     if (!storage.outcomes) storage.outcomes = [];
     if (!storage.followersCache) storage.followersCache = { updatedAt: 0, ids: [] };
     if (!storage.followingCache) storage.followingCache = { updatedAt: 0, ids: [] };
+    
+    // Ensure repliedTweetIds is a Set
+    if (!storage.repliedTweetIds || typeof storage.repliedTweetIds.has !== 'function') {
+      storage.repliedTweetIds = new Set(Array.isArray(storage.repliedTweetIds) ? storage.repliedTweetIds : []);
+    }
+    
+    // Ensure repliedUserIds exists
+    if (!storage.repliedUserIds) storage.repliedUserIds = {};
     
     // Run the bot with our config and storage
     await botModule.runModeB(config, storage);
