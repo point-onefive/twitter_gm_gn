@@ -171,7 +171,7 @@ node index.js --mode=b --limit=10 --dry
 ## ⚠️ Rate Limits & Best Practices
 
 ### Twitter API Free Tier Limits
-- **Search**: 100 requests per month
+- **Search**: Very limited requests per 15-minute window
 - **Posting**: 1,667 tweets per month
 - **Rate limits**: Various per endpoint
 

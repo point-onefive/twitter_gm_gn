@@ -8,7 +8,10 @@
     "start": "node index.js",
     "test-mode": "node index.js --mode=a --dry",
     "live-mode": "node index.js --mode=b --limit=5",
-    "dry-run": "node index.js --mode=b --dry --limit=3"
+    "dry-run": "node index.js --mode=b --dry --limit=3",
+    "test-full": "node index-production.js --test --dry --limit=3",
+    "test-live": "node index-production.js --real --dry --limit=1",
+    "production": "node index-production.js --limit=5"
   },
   "keywords": ["twitter", "bot", "engagement", "automation"],
   "author": "Your Name",
