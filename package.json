@@ -11,7 +11,10 @@
     "dry-run": "node index.js --mode=b --dry --limit=3",
     "test-full": "node index-production.js --test --dry --limit=3",
     "test-live": "node index-production.js --real --dry --limit=1",
-    "production": "node index-production.js --limit=5"
+    "production": "node index-production.js --limit=5",
+    "score": "node index.js --score",
+    "score-1h": "node index.js --score --age=60",
+    "score-24h": "node index.js --score --age=1440"
   },
   "keywords": ["twitter", "bot", "engagement", "automation"],
   "author": "Your Name",

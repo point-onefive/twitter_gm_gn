@@ -1,25 +1,73 @@
 # 🤖 Twitter GM/GN Engagement Bot
 
-A sophisticated Node.js bot that automatically finds and replies to "gm" (good morning) and "gn" (good night) tweets with AI-generated, contextual responses to organically grow your Twitter engagement and follower count.
+A sophisticated Node.js bot that automatically finds and replies to "gm" (good morning) and "gn" (good night) tweets with AI-generated, co### Successful Dry Run
+```bash
+🤖 Twitter GM/GN Bot Starting...
+🔍 Mode B: Searching for gm/gn tweets
+📱 Found 8 tweets
+
+📱 Processing tweet 1954123456789: "gm crypto fam! ☀️"
+🤖 Generating AI reply...
+[DRY RUN] Would reply to 1954123456789: "gm! have an amazing day building 🚀"
+[DRY RUN] Would like tweet 1954123456789
+[DRY RUN] Would log outcome for template 'ai:v1'
+
+📱 Processing tweet 1954123456790: "gn everyone 🌙"
+🤖 Generating AI reply...
+[DRY RUN] Would reply to 1954123456790: "gn! sweet dreams ✨"
+[DRY RUN] Would like tweet 1954123456790
+[DRY RUN] Would log outcome for template 'ai:v1'
+
+⏭️  Skipping 1954123456791: Contains links or mentions
+⏭️  Skipping 1954123456792: Contains sensitive content
+
+✅ Mode B completed. Replied to 2 tweets.
+```
+
+### Live Posting
+```bash
+✅ Replied to 1954123456789: "gm! have an amazing day building 🚀"
+✅ Cached user ID: 1870158361565519872
+💖 Liked tweet 1954123456789
+📊 Adding outcome to storage: 1 total outcomes
+✅ Logged outcome: ai:v1 -> 1954987654321
+```
+
+### Analytics Collection
+```bash
+📊 Running in score collection mode...
+📈 Collecting scores for outcomes older than 60 minutes...
+📊 Found 5 outcomes to score
+
+📊 Results:
+TemplateID | Likes | Replies | Retweets | Quotes | Reward
+----------|-------|---------|----------|--------|-------
+ai:v1     |     3 |       1 |        0 |      0 |      5
+
+✅ Updated 5 outcomes with metrics
+```s to organically grow your Twitter engagement and follower count.
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Twitter API](https://img.shields.io/badge/Twitter%20API-v2-1DA1F2.svg)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-412991.svg)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5-412991.svg)
 
 ## 🎯 What It Does
 
 This bot helps you build genuine Twitter engagement by:
 
-- **🔍 Smart Discovery**: Automatically searches for tweets containing "gm", "good morning", "gn", or "good night"
-- **🤖 AI-Powered Replies**: Uses OpenAI GPT-4 to generate warm, contextual responses under 12 words
-- **🛡️ Safety First**: Filters out sensitive content, spam, and inappropriate tweets
+- **🔍 Smart Discovery**: Automatically searches for crypto/web3 "gm" and "gn" tweets
+- **🤖 AI-Powered Replies**: Uses OpenAI GPT-5 to generate warm, contextual responses under 12 words
+- **💖 Auto-Engagement**: Automatically likes the source tweet after replying
+- **� Analytics Tracking**: Logs all interactions for A/B testing and performance analysis
+- **�🛡️ Safety First**: Filters out sensitive content, spam, and inappropriate tweets
 - **📈 Organic Growth**: Builds real relationships through genuine, helpful interactions
 - **⚡ Rate Limited**: Respects Twitter's API limits and avoids looking robotic
 
 ## ✨ Key Features
 
 ### 🧠 Intelligent Filtering
+- ✅ Targets crypto/web3 community with "gm" and "gn" focus
 - ✅ Allows GIFs, images, and memes (common in crypto Twitter)
 - ❌ Skips tweets with links or @mentions
 - ❌ Avoids sensitive topics (medical, political, tragic content)
@@ -27,18 +75,26 @@ This bot helps you build genuine Twitter engagement by:
 - ❌ Prevents duplicate replies across restarts
 
 ### 🎨 Smart Reply Generation
+- Uses GPT-5 for optimal cost efficiency and quality
 - Mirrors the original tweet's language and emoji style
 - Stays warm and friendly, never salesy
 - Adapts to crypto/business Twitter terminology
 - Automatically skips controversial content
 - Generates unique responses for each tweet
 
-### 🔒 Built-in Safety
+### � Enhanced Engagement
+- **Auto-like feature**: Automatically likes source tweets after replying
+- **Outcome logging**: Tracks all interactions for analytics
+- **Performance metrics**: Collects engagement data (likes, replies, retweets)
+- **A/B testing ready**: Built-in data structure for testing different strategies
+
+### �🔒 Built-in Safety
 - Random 5-20 second delays between replies
 - Maximum ~15 replies per hour
 - Graceful error handling and API backoff
 - Dry-run mode for safe testing
 - Persistent storage to avoid duplicates
+- Smart filtering for offensive content
 
 ## 🚀 Quick Start
 
@@ -115,6 +171,9 @@ Options:
   --ids=id1,id2,id3   Comma-separated tweet IDs for Mode A
   --limit=NUMBER      Maximum replies per run (default: 5)
   --dry               Dry run mode (shows output without posting)
+  --real              Force real API mode (bypass test mode)
+  --score             Score collection mode (fetch engagement metrics)
+  --age=MINUTES       Age threshold for score collection (default: 60)
 ```
 
 ### NPM Scripts
@@ -124,6 +183,19 @@ npm run test-mode    # Mode A with dry run
 npm run live-mode    # Mode B live posting (limit 5)
 npm run dry-run      # Mode B dry run (limit 3)
 npm start           # Default live mode
+```
+
+### Analytics Commands
+
+```bash
+# Collect engagement metrics for replies older than 60 minutes
+node index.js --score --age=60
+
+# Check recent reply performance (30 seconds old)
+node index.js --score --age=0.5
+
+# View stored analytics data
+cat storage.json | jq '.outcomes'
 ```
 
 ### Example Commands
@@ -224,7 +296,25 @@ The bot maintains state in `storage.json`:
   "repliedUserIds": {
     "123456789": 1691234567890
   },
-  "repliedTweetIds": ["1954123456789", "1954123456790"]
+  "repliedTweetIds": ["1954123456789", "1954123456790"],
+  "outcomes": [
+    {
+      "sourceTweetId": "1954123456789",
+      "replyTweetId": "1954987654321",
+      "authorId": "123456789",
+      "templateId": "ai:v1",
+      "mode": "a",
+      "ts": "2025-08-11T17:41:55.369Z",
+      "status": "posted",
+      "metrics": {
+        "likes": 3,
+        "replies": 1,
+        "retweets": 0,
+        "quotes": 0
+      }
+    }
+  ],
+  "myUserId": "1870158361565519872"
 }
 ```
 

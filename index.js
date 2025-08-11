@@ -82,26 +82,191 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Cache for user ID
+let myUserId = null;
+
+// Auto-like functionality
+async function ensureMyUserId() {
+  if (myUserId) return myUserId;
+  
+  try {
+    const me = await twitter.v2.me();
+    myUserId = me.data.id;
+    console.log(`✅ Cached user ID: ${myUserId}`);
+    return myUserId;
+  } catch (error) {
+    console.error('❌ Failed to get user ID:', error.message);
+    throw error;
+  }
+}
+
+async function likeTweet(tweetId) {
+  try {
+    const userId = await ensureMyUserId();
+    await twitter.v2.like(userId, tweetId);
+    console.log(`💖 Liked tweet ${tweetId}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to like tweet ${tweetId}:`, error.message);
+    if (error.code >= 400) {
+      console.log('⏳ Backing off for 120 seconds...');
+      await delay(120000, 120000);
+    }
+    return false;
+  }
+}
+
+// Outcome logging for A/B testing
+function calculateReward(metrics) {
+  return metrics.likes + (2 * metrics.replies);
+}
+
+async function logOutcome({ sourceTweetId, replyTweetId, authorId, templateId, mode = 'a' }) {
+  try {
+    const storage = await loadStorage();
+    
+    if (!storage.outcomes) {
+      storage.outcomes = [];
+    }
+    
+    const outcome = {
+      sourceTweetId,
+      replyTweetId,
+      authorId,
+      templateId,
+      mode,
+      ts: new Date().toISOString(),
+      status: 'posted',
+      metrics: { likes: 0, replies: 0, retweets: 0, quotes: 0 }
+    };
+    
+    storage.outcomes.push(outcome);
+    console.log(`📊 Adding outcome to storage: ${storage.outcomes.length} total outcomes`);
+    
+    await saveStorage(storage);
+    console.log(`✅ Logged outcome: ${templateId} -> ${replyTweetId}`);
+  } catch (error) {
+    console.error(`❌ Error logging outcome:`, error.message);
+  }
+}
+
+// Score collection for metrics tracking
+async function collectScores(ageMinutes = 60) {
+  console.log(`📈 Collecting scores for outcomes older than ${ageMinutes} minutes...`);
+  
+  const storage = await loadStorage();
+  const cutoffTime = new Date(Date.now() - ageMinutes * 60 * 1000);
+  
+  // Find outcomes that need scoring
+  const toScore = storage.outcomes.filter(outcome => 
+    outcome.status === 'posted' && 
+    new Date(outcome.ts) < cutoffTime
+  );
+  
+  if (toScore.length === 0) {
+    console.log('📭 No outcomes ready for scoring');
+    return;
+  }
+  
+  console.log(`📊 Found ${toScore.length} outcomes to score`);
+  
+  // Get reply tweet IDs
+  const replyTweetIds = toScore.map(o => o.replyTweetId);
+  
+  try {
+    // Fetch metrics in batches (Twitter API limit is 100 per request)
+    const batchSize = 100;
+    const results = [];
+    
+    for (let i = 0; i < replyTweetIds.length; i += batchSize) {
+      const batch = replyTweetIds.slice(i, i + batchSize);
+      const response = await twitter.v2.tweets(batch, {
+        'tweet.fields': 'public_metrics'
+      });
+      
+      if (response.data) {
+        results.push(...response.data);
+      }
+      
+      // Small delay between batches
+      if (i + batchSize < replyTweetIds.length) {
+        await delay(1000, 2000);
+      }
+    }
+    
+    // Update outcomes with metrics
+    const metricsMap = new Map();
+    results.forEach(tweet => {
+      if (tweet.public_metrics) {
+        metricsMap.set(tweet.id, {
+          likes: tweet.public_metrics.like_count || 0,
+          replies: tweet.public_metrics.reply_count || 0,
+          retweets: tweet.public_metrics.retweet_count || 0,
+          quotes: tweet.public_metrics.quote_count || 0
+        });
+      }
+    });
+    
+    // Update storage and calculate rewards
+    let updatedCount = 0;
+    console.log('\n📊 Results:');
+    console.log('TemplateID | Likes | Replies | Retweets | Quotes | Reward');
+    console.log('----------|-------|---------|----------|--------|-------');
+    
+    for (const outcome of toScore) {
+      const metrics = metricsMap.get(outcome.replyTweetId);
+      if (metrics) {
+        outcome.metrics = metrics;
+        outcome.status = 'scored';
+        updatedCount++;
+        
+        const reward = calculateReward(metrics);
+        console.log(`${outcome.templateId.padEnd(9)} | ${metrics.likes.toString().padStart(5)} | ${metrics.replies.toString().padStart(7)} | ${metrics.retweets.toString().padStart(8)} | ${metrics.quotes.toString().padStart(6)} | ${reward.toString().padStart(6)}`);
+      }
+    }
+    
+    await saveStorage(storage);
+    console.log(`\n✅ Updated ${updatedCount} outcomes with metrics`);
+    
+  } catch (error) {
+    console.error('❌ Error collecting scores:', error.message);
+  }
+}
+
 // Storage functions
 async function loadStorage() {
   try {
     const data = await fs.readFile(STORAGE_FILE, 'utf8');
-    return JSON.parse(data);
+    const storage = JSON.parse(data);
+    
+    // Ensure all required fields exist
+    if (!storage.outcomes) storage.outcomes = [];
+    if (!storage.lastMentionId) storage.lastMentionId = null;
+    
+    return storage;
   } catch (error) {
     return {
       sinceId: null,
       repliedUserIds: {},
-      repliedTweetIds: new Set()
+      repliedTweetIds: new Set(),
+      outcomes: [],
+      lastMentionId: null
     };
   }
 }
 
 async function saveStorage(storage) {
-  const storageToSave = {
-    ...storage,
-    repliedTweetIds: Array.from(storage.repliedTweetIds)
-  };
-  await fs.writeFile(STORAGE_FILE, JSON.stringify(storageToSave, null, 2));
+  try {
+    const storageToSave = {
+      ...storage,
+      repliedTweetIds: Array.from(storage.repliedTweetIds)
+    };
+    await fs.writeFile(STORAGE_FILE, JSON.stringify(storageToSave, null, 2));
+    console.log(`💾 Storage saved with ${storage.outcomes?.length || 0} outcomes`);
+  } catch (error) {
+    console.error(`❌ Error saving storage:`, error.message);
+    throw error;
+  }
 }
 
 // Utility functions
@@ -113,7 +278,9 @@ function parseArgs() {
     limit: 5,
     dry: false,
     testMode: false,  // --test flag for test mode
-    realApi: false    // --real flag to force real API usage
+    realApi: false,   // --real flag to force real API usage
+    score: false,     // --score flag for metrics collection
+    ageMinutes: 60    // --age=N for score collection
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -124,12 +291,16 @@ function parseArgs() {
       config.ids = arg.split('=')[1].split(',').filter(id => id.trim());
     } else if (arg.startsWith('--limit=')) {
       config.limit = parseInt(arg.split('=')[1]);
+    } else if (arg.startsWith('--age=')) {
+      config.ageMinutes = parseInt(arg.split('=')[1]);
     } else if (arg === '--dry') {
       config.dry = true;
     } else if (arg === '--test') {
       config.testMode = true;
     } else if (arg === '--real') {
       config.realApi = true;
+    } else if (arg === '--score') {
+      config.score = true;
     }
   }
 
@@ -234,23 +405,34 @@ async function delay(min, max) {
   await new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function replyToTweet(tweetId, replyText, isDry = false) {
+async function replyToTweet(tweetId, replyText, isDry = false, sourceTweetId = null, authorId = null) {
   if (isDry) {
     console.log(`[DRY RUN] Would reply to ${tweetId}: "${replyText}"`);
-    return true;
+    if (sourceTweetId && authorId) {
+      console.log(`[DRY RUN] Would log outcome and like source tweet ${sourceTweetId}`);
+    }
+    return { success: true, replyTweetId: 'dry_run_' + Date.now() };
   }
 
   try {
-    await twitter.v2.reply(replyText, tweetId);
+    const response = await twitter.v2.reply(replyText, tweetId);
+    const replyTweetId = response.data.id;
+    
     console.log(`✅ Replied to ${tweetId}: "${replyText}"`);
-    return true;
+    
+    // Auto-like the source tweet
+    if (sourceTweetId) {
+      await likeTweet(sourceTweetId);
+    }
+    
+    return { success: true, replyTweetId };
   } catch (error) {
     console.error(`❌ Failed to reply to ${tweetId}:`, error.message);
     if (error.code >= 400) {
-      console.log('Backing off for 120 seconds...');
+      console.log('⏳ Backing off for 120 seconds...');
       await delay(120000, 120000);
     }
-    return false;
+    return { success: false, replyTweetId: null };
   }
 }
 
@@ -274,7 +456,7 @@ async function runModeB(config, storage) {
     console.log('🌐 LIVE MODE: Using real Twitter API');
     try {
       const searchParams = {
-        query: 'gm -is:reply -is:retweet -has:links lang:en',
+        query: '(gm OR gn) -is:reply -is:retweet -has:links lang:en',
         max_results: 10,
         expansions: 'author_id',
         'tweet.fields': 'author_id,created_at,text'
@@ -346,13 +528,33 @@ async function runModeB(config, storage) {
       continue;
     }
     
-    const success = await replyToTweet(tweet.id, replyText, config.dry);
-    if (success) {
+    const result = await replyToTweet(tweet.id, replyText, config.dry, tweet.id, tweet.author_id);
+    if (result.success) {
       storage.repliedTweetIds.add(tweet.id);
       storage.repliedUserIds[tweet.author_id] = Date.now();
+      
+      // Log outcome for A/B testing (only in non-dry mode)
+      if (!config.dry && result.replyTweetId) {
+        await logOutcome({
+          sourceTweetId: tweet.id,
+          replyTweetId: result.replyTweetId,
+          authorId: tweet.author_id,
+          templateId: 'ai:v1', // For now, all replies are AI-generated
+          mode: 'a'
+        });
+        // Reload storage to get the updated outcomes
+        const updatedStorage = await loadStorage();
+        storage.outcomes = updatedStorage.outcomes;
+        storage.repliedTweetIds = new Set(updatedStorage.repliedTweetIds);
+        storage.repliedUserIds = updatedStorage.repliedUserIds;
+      } else if (config.dry) {
+        console.log(`[DRY RUN] Would log outcome for template 'ai:v1'`);
+      }
+      
       repliedCount++;
       
-      if (!config.dry) {
+      // Only save if we're in dry mode (since logOutcome already saved in live mode)
+      if (config.dry) {
         await saveStorage(storage);
       }
       
@@ -378,6 +580,14 @@ async function main() {
   
   const config = parseArgs();
   console.log('⚙️  Configuration:', config);
+  
+  // Handle score collection mode
+  if (config.score) {
+    console.log('📊 Running in score collection mode...');
+    await collectScores(config.ageMinutes);
+    console.log('🏁 Score collection completed');
+    return;
+  }
   
   // Show mode info
   if (config.testMode && !config.realApi) {
