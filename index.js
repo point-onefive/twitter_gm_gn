@@ -111,7 +111,7 @@ function hasRepliedRecently(userId, repliedUserIds) {
 async function generateReply(tweetText) {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',  // Using gpt-4 as gpt-5 is not yet available
+      model: 'gpt-5',  // Using gpt-5 for better cost efficiency and speed
       messages: [
         {
           role: 'system',
