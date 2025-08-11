@@ -1,0 +1,54 @@
+name: GM/GN Bot Automation
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"  # Every 10 minutes
+  workflow_dispatch:         # Allow manual run
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run GM/GN bot
+        run: node run.js
+        env:
+          # Twitter API credentials
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          
+          # OpenAI API
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          
+          # Upstash Redis (for state persistence)
+          UPSTASH_URL: ${{ secrets.UPSTASH_URL }}
+          UPSTASH_TOKEN: ${{ secrets.UPSTASH_TOKEN }}
+          
+          # Bot configuration
+          MAX_REPLIES: ${{ secrets.MAX_REPLIES || '8' }}
+          MIN_FOLLOWERS: ${{ secrets.MIN_FOLLOWERS || '500' }}
+          LANGS: ${{ secrets.LANGS || 'en,es,pt' }}
+          AUTO_LIKE: ${{ secrets.AUTO_LIKE || 'true' }}
+
+      - name: Report status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Bot run completed successfully"
+          else
+            echo "❌ Bot run failed"
+          fi

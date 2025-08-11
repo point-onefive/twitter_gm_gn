@@ -326,6 +326,9 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
     bucketName = "high-reach";
   }
   
+  // Strategic filtering: skip very low-value targets when we have limited slots
+  const isLowValue = followersCount < 50 && bucket > 3;
+  
   const secondary = -followersCount; // Higher follower count first (negative for ASC sort)
   const createdAt = Date.parse(tweet.created_at || 0);
   
@@ -336,7 +339,8 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
     createdAt,
     followersCount,
     isFollower,
-    isFollowing
+    isFollowing,
+    isLowValue
   };
 }
 
@@ -427,12 +431,22 @@ async function ensureMyUserId() {
 async function likeTweet(tweetId) {
   try {
     const userId = await ensureMyUserId();
+    
+    // Rate limit protection: likes are limited to 50/15min (3.3/min)
+    // Add 20-30 second delay before each like to stay well under limit
+    const likeDelay = 20000 + Math.random() * 10000; // 20-30 seconds
+    console.log(`⏳ Waiting ${Math.round(likeDelay/1000)}s before liking (rate limit protection)...`);
+    await delay(likeDelay, likeDelay);
+    
     await twitter.v2.like(userId, tweetId);
     console.log(`💖 Liked tweet ${tweetId}`);
     return true;
   } catch (error) {
     console.error(`❌ Failed to like tweet ${tweetId}:`, error.message);
-    if (error.code >= 400) {
+    if (error.code === 429) {
+      console.log('⏳ Like rate limit hit - backing off for 5 minutes...');
+      await delay(300000, 300000); // 5 minute backoff for rate limits
+    } else if (error.code >= 400) {
       console.log('⏳ Backing off for 120 seconds...');
       await delay(120000, 120000);
     }
@@ -609,7 +623,9 @@ function parseArgs() {
     forceTime: null,  // --forceTime=weekend|weekday to override detection
     minFollowers: parseInt(process.env.MIN_FOLLOWERS) || 500, // --minFollowers=N
     refreshFollowers: false, // --refreshFollowers to bypass cache TTL
-    refreshFollowing: false  // --refreshFollowing to bypass cache TTL
+    refreshFollowing: false, // --refreshFollowing to bypass cache TTL
+    targetingMode: 'smart',   // --targeting=smart|crypto|broad
+    autoLike: true    // --noLike to disable auto-liking
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -628,6 +644,8 @@ function parseArgs() {
       config.forceTime = arg.split('=')[1];
     } else if (arg.startsWith('--minFollowers=')) {
       config.minFollowers = parseInt(arg.split('=')[1]);
+    } else if (arg.startsWith('--targeting=')) {
+      config.targetingMode = arg.split('=')[1];
     } else if (arg === '--dry') {
       config.dry = true;
     } else if (arg === '--test') {
@@ -640,6 +658,8 @@ function parseArgs() {
       config.refreshFollowers = true;
     } else if (arg === '--refreshFollowing') {
       config.refreshFollowing = true;
+    } else if (arg === '--noLike') {
+      config.autoLike = false;
     }
   }
 
@@ -759,11 +779,15 @@ async function delay(min, max) {
   await new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function replyToTweet(tweetId, replyText, isDry = false, sourceTweetId = null, authorId = null) {
+async function replyToTweet(tweetId, replyText, isDry = false, sourceTweetId = null, authorId = null, config = {}) {
   if (isDry) {
     console.log(`[DRY RUN] Would reply to ${tweetId}: "${replyText}"`);
     if (sourceTweetId && authorId) {
-      console.log(`[DRY RUN] Would log outcome and like source tweet ${sourceTweetId}`);
+      if (config.autoLike !== false) {
+        console.log(`[DRY RUN] Would log outcome and like source tweet ${sourceTweetId}`);
+      } else {
+        console.log(`[DRY RUN] Would log outcome (auto-like disabled)`);
+      }
     }
     return { success: true, replyTweetId: 'dry_run_' + Date.now() };
   }
@@ -774,8 +798,8 @@ async function replyToTweet(tweetId, replyText, isDry = false, sourceTweetId = n
     
     console.log(`✅ Replied to ${tweetId}: "${replyText}"`);
     
-    // Auto-like the source tweet
-    if (sourceTweetId) {
+    // Auto-like the source tweet (if enabled)
+    if (sourceTweetId && config.autoLike !== false) {
       await likeTweet(sourceTweetId);
     }
     
@@ -894,6 +918,14 @@ async function runModeB(config, storage) {
   console.log(`📱 Found ${tweets.length} tweets`);
   
   let repliedCount = 0;
+  let skippedLowValue = 0;
+  
+  // First pass: count high-value targets
+  const highValueTweets = tweets.filter(tweet => 
+    tweet.priority && !tweet.priority.isLowValue
+  );
+  
+  console.log(`🎯 Strategic targeting: ${highValueTweets.length} high-value, ${tweets.length - highValueTweets.length} low-value`);
   
   for (const tweet of tweets) {
     if (repliedCount >= config.limit) break;
@@ -904,6 +936,21 @@ async function runModeB(config, storage) {
       : `tweet=${tweet.id}`;
     
     console.log(`📱 Processing ${priorityInfo}: "${tweet.text}"`);
+    
+    // Strategic skip: if we have high-value targets remaining and this is low-value, skip it
+    if (tweet.priority?.isLowValue && repliedCount < config.limit) {
+      const remainingSlots = config.limit - repliedCount;
+      const remainingHighValue = highValueTweets.filter(t => 
+        !storage.repliedTweetIds.has(t.id) && 
+        !hasRepliedRecently(t.author_id, storage.repliedUserIds)
+      ).length;
+      
+      if (remainingHighValue >= remainingSlots * 0.7) { // Save 70% of slots for high-value
+        console.log(`⏭️  Skipping low-value target (${tweet.priority.followersCount} followers) - saving slots for high-value targets`);
+        skippedLowValue++;
+        continue;
+      }
+    }
     
     if (storage.repliedTweetIds.has(tweet.id)) {
       console.log(`⏭️  Already replied to ${tweet.id}`);
@@ -927,7 +974,7 @@ async function runModeB(config, storage) {
       continue;
     }
     
-    const result = await replyToTweet(tweet.id, replyText, config.dry, tweet.id, tweet.author_id);
+    const result = await replyToTweet(tweet.id, replyText, config.dry, tweet.id, tweet.author_id, config);
     if (result.success) {
       storage.repliedTweetIds.add(tweet.id);
       storage.repliedUserIds[tweet.author_id] = Date.now();
@@ -971,6 +1018,9 @@ async function runModeB(config, storage) {
   }
   
   console.log(`✅ Mode B completed. Replied to ${repliedCount} tweets.`);
+  if (skippedLowValue > 0) {
+    console.log(`🎯 Strategic skips: ${skippedLowValue} low-value targets skipped to prioritize high-value engagement`);
+  }
 }
 
 // Main function
@@ -1026,7 +1076,40 @@ async function main() {
 }
 
 // Run the bot
-main().catch(error => {
-  console.error('💥 Fatal error:', error);
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  // Only run main if this file is executed directly
+  main().catch(error => {
+    console.error('💥 Fatal error:', error);
+    process.exit(1);
+  });
+}
+
+// Export functions for automation
+export { 
+  runModeB, 
+  loadStorage, 
+  saveStorage
+};
+
+// Create default storage structure
+export function createDefaultStorage() {
+  return {
+    sinceId: null,
+    repliedTweetIds: new Set(),
+    repliedUserIds: {},
+    outcomes: [],
+    followersCache: { updatedAt: 0, ids: [] },
+    followingCache: { updatedAt: 0, ids: [] }
+  };
+}
+
+// Setup functions for automation
+export function setupTwitterClient() {
+  // Twitter client is already initialized globally
+  return twitter;
+}
+
+export function setupOpenAI() {
+  // OpenAI client is already initialized globally
+  return openai;
+}

@@ -1,53 +1,23 @@
 # 🤖 Twitter GM/GN Engagement Bot
 
-A sophisticated Node.js bot that automatically finds and replies to "gm" (good morning) and "gn" (good night) tweets with AI-generated, co### Successful Dry Run
-```bash
-🤖 Twitter GM/GN Bot Starting...
-🔍 Mode B: Searching for gm/gn tweets
-📱 Found 8 tweets
-
-📱 Processing tweet 1954123456789: "gm crypto fam! ☀️"
-🤖 Generating AI reply...
-[DRY RUN] Would reply to 1954123456789: "gm! have an amazing day building 🚀"
-[DRY RUN] Would like tweet 1954123456789
-[DRY RUN] Would log outcome for template 'ai:v1'
-
-📱 Processing tweet 1954123456790: "gn everyone 🌙"
-🤖 Generating AI reply...
-[DRY RUN] Would reply to 1954123456790: "gn! sweet dreams ✨"
-[DRY RUN] Would like tweet 1954123456790
-[DRY RUN] Would log outcome for template 'ai:v1'
-
-⏭️  Skipping 1954123456791: Contains links or mentions
-⏭️  Skipping 1954123456792: Contains sensitive content
-
-✅ Mode B completed. Replied to 2 tweets.
-```
-
-### Live Posting
-```bash
-✅ Replied to 1954123456789: "gm! have an amazing day building 🚀"
-✅ Cached user ID: 1870158361565519872
-💖 Liked tweet 1954123456789
-📊 Adding outcome to storage: 1 total outcomes
-✅ Logged outcome: ai:v1 -> 1954987654321
-```
-
-### Analytics Collection
-```bash
-📊 Running in score collection mode...
-📈 Collecting scores for outcomes older than 60 minutes...
-📊 Found 5 outcomes to score
-
-📊 Results:
-TemplateID | Likes | Replies | Retweets | Quotes | Reward
-----------|-------|---------|----------|--------|-------
-ai:v1     |     3 |       1 |        0 |      0 |      5
-
-✅ Updated 5 outcomes with metrics
-```s to organically grow your Twitter engagement and follower count.
+A sophisticated Node.js bot that automatically finds and replies to "gm" (good morning) and "gn" (good night) tweets with AI-generated, contextual responses to organically grow your Twitter engagement and follower count.
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Automation](https://img.shields.io/badge/Automation-GitHub%20Actions-orange.svg)
+![Cloud](https://img.shields.io/badge/Storage-Upstash%20Redis-red.svg)
+
+## 🚀 **Fully Automated Setup Available!**
+
+**New: Complete hands-off automation with GitHub Actions!**
+- ✅ **100% Free serverless execution**
+- ✅ **Runs every 10 minutes automatically** 
+- ✅ **Cloud state persistence**
+- ✅ **Zero maintenance required**
+
+**👉 [Complete Automation Setup Guide](AUTOMATION_SETUP.md)**
+
+## ✨ Features
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Twitter API](https://img.shields.io/badge/Twitter%20API-v2-1DA1F2.svg)
 ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5-412991.svg)
