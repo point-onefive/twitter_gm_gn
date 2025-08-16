@@ -1005,8 +1005,8 @@ async function runModeB(config, storage) {
       }
       
       if (repliedCount < config.limit) {
-        // Use 60-90 second delays to stay within 15-minute window limits
-        const delayTime = config.testMode ? [1000, 2000] : [60000, 90000]; // 60-90 seconds for production
+        // Small delay between replies for natural behavior (2-5 seconds)
+        const delayTime = config.testMode ? [1000, 2000] : [2000, 5000]; // 2-5 seconds for production
         await delay(delayTime[0], delayTime[1]);
       }
     }

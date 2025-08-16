@@ -1,0 +1,113 @@
+# Twitter Bot Activity Metrics
+# Generated: August 16, 2025
+# Bot: Engagement Pool & Shoutout Automation
+
+## AUTOMATION SCHEDULE
+Daily Shoutout: Once per day (cron: "0 15 * * *") - 3 PM UTC (11 AM EDT)
+Weekly Winner Selection: Sundays (cron: "0 16 * * 0") - 4 PM UTC (12 PM EDT)
+Monthly Winner: 1st of month (cron: "0 17 1 * *") - 5 PM UTC (1 PM EDT)
+Jitter Applied: 10-20 minute random delay on daily runs (production only)
+
+Daily Runs: 1 execution
+Weekly Runs: 7 executions + 1 winner selection
+Monthly Runs: ~30 executions + 1 winner selection + 4 weekly winner selections
+
+## API OPERATIONS PER DAILY RUN
+
+### READ OPERATIONS (Twitter API v2)
+- Get User Profile: 1 call (authenticated user info)
+- Search Mentions: 1 call (max_results=100, last 24h filter)
+- Get Recent Tweets: 1 call (max_results=50, last 24h filter)
+- Get Tweet Likes: 1-50 calls (1 per tweet from recent tweets)
+- Get User Details: 0-10 calls (for winner verification, cached)
+
+### WRITE OPERATIONS (Twitter API v2)
+- Post Shoutout Tweet: 1 call per run (max 2 winners mentioned)
+
+### OPENAI API OPERATIONS
+- Shoutout Generation: 1 call per run (gpt-4o, ~80-120 tokens)
+
+### REDIS OPERATIONS (Upstash)
+- Daily Engagement Storage: 50-200 SET operations (per engaged user)
+- Points Calculation: 50-200 GET/SET operations
+- Pool Management: 2-10 operations (add winners to monthly/weekly pools)
+- Cooldown Management: 2-4 operations (set/check cooldowns)
+- Metadata Updates: 2-3 operations (last run timestamp, etc.)
+
+## VELOCITY BREAKDOWN
+
+### PER MINUTE (During Active Run)
+- Run Duration: 3-8 minutes (with 2s delays between API calls)
+- Reads: 8-15 calls/min (mentions + tweets + likes analysis)
+- Writes: 0.2 calls/min (1 tweet per 5-8 min run)
+- Processing Pacing: 2-3 seconds between tweet like checks
+
+### PER HOUR
+- Runs: 0.042 (once per 24 hours)
+- Read Calls: ~25 (1 mention search + 1 timeline + ~23 like checks)
+- Write Calls: ~1 (shoutout tweet)
+- OpenAI Calls: ~1 (shoutout generation)
+- Redis Operations: ~100 (engagement data + scoring)
+
+### PER DAY
+- Total Runs: 1 (with 10-20 min jitter)
+- Read Calls: ~25 (mentions + timeline + like analysis)
+- Write Calls: ~1 (shoutout post)
+- OpenAI Calls: ~1 (message generation)
+- Redis Operations: ~100 (daily engagement tracking)
+- Users Processed: 50-200 (engagement tracking + scoring)
+
+### PER WEEK
+- Read Calls: ~175 (25 × 7 daily runs)
+- Write Calls: ~8 (7 shoutouts + 1 winner selection process)
+- OpenAI Calls: ~8 (7 shoutouts + 1 winner announcement)
+- Redis Operations: ~700 (engagement data + pool management)
+- Winner Selection: 1 run (additional API calls for verification)
+
+### PER MONTH
+- Read Calls: ~750 (daily operations + winner verifications)
+- Write Calls: ~35 (daily shoutouts + weekly winners + monthly winner)
+- OpenAI Calls: ~35 (content generation)
+- Redis Operations: ~3,000 (full month engagement tracking)
+- Pool Reset: 1 operation (monthly pool reset)
+
+## OPERATIONAL CHARACTERISTICS
+
+### Bot Behavior
+- Processing Pacing: 2-3 seconds between API calls (rate limit management)
+- Run Duration: 3-8 minutes per execution (including jitter)
+- Engagement Window: Last 24 hours (sliding window)
+- Scoring System: Likes (1pt), Replies (3pts), Quotes (4pts), Daily cap (7pts/user)
+- Shoutout Selection: Top 2 users by points (with tie-breaking)
+
+### Cache Strategy
+- User Details: Indefinite cache (until API lookup needed)
+- Daily Engagement: Persistent storage (Redis)
+- Points Accumulation: Monthly rolling storage
+- Cooldown Tracking: 7-day TTL for shoutout winners
+
+### Filtering Logic
+- ORIGINAL_POSTS_ONLY: Configurable filter (replies to original posts only)
+- Protected Users: Filtered out from winner selection
+- Cooldown Users: 7-day exclusion after winning shoutout
+- Minimum Points: 1 point threshold for selection
+
+### Resource Usage Patterns
+- Peak Activity: 3-8 minutes daily at 11 AM EDT (±20 min jitter)
+- Idle Time: 23+ hours between runs
+- Batch Operations: Engagement analysis, points calculation
+- Sequential Operations: API calls with 2s delays for rate limit compliance
+- Storage Pattern: Append-only daily engagement, rolling monthly totals
+
+### API Consumption vs GM/GN Bot
+- Frequency: 1/12th the frequency (daily vs every 2 hours)
+- Read Intensity: Similar per-run intensity (~25 calls vs ~13 calls)
+- Write Intensity: Much lower (1 post vs 8 posts per run)
+- OpenAI Usage: Much lower (1 call vs 4-8 calls per run)
+- Total Monthly Volume: ~35% of GM/GN bot consumption
+
+### Special Operations
+- Winner Selection: Additional 2-5 API calls for user verification
+- Pool Management: Redis-only operations (no additional API calls)
+- Engagement Analysis: Scales with user activity (50-200 users typical)
+- Error Recovery: Timeout handling with 15s limits, graceful degradation

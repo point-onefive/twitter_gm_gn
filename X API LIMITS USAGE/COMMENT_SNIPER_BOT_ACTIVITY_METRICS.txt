@@ -1,0 +1,147 @@
+# Twitter Comment Sniper Bot Activity Metrics
+# Generated: August 16, 2025
+# Bot: Early Reply Automation (Crypto Twitter Engagement)
+
+## AUTOMATION SCHEDULE
+Frequency: Every 10 minutes (cron: "*/10 * * * *")
+Daily Runs: 144 executions
+Weekly Runs: 1,008 executions
+Monthly Runs: ~4,320 executions
+
+## API OPERATIONS PER RUN
+
+### READ OPERATIONS (Twitter API v2)
+- User Timeline Fetch: 0-15 calls per run (1 per active target, max 15 targets)
+  * max_results=10 tweets per call
+  * 10-20 minute fresh tweet window only
+- User ID Resolution: 0 calls (pre-resolved IDs cached)
+- User Lookup: 0 calls (cached indefinitely)
+
+### WRITE OPERATIONS (Twitter API v2)
+- Post Replies: 0-5 per run (target: 5, configurable MAX_SNIPES_PER_RUN)
+- Auto-Like Source: 0 calls (not implemented)
+
+### OPENAI API OPERATIONS
+- Reply Generation: 0-5 calls per run (gpt-4o-mini, ~50 tokens each)
+  * Only when eligible tweets found and not on cooldown
+  * Personality-driven responses (analyst, insider, realist, optimist, skeptic)
+
+### REDIS OPERATIONS (Upstash)
+- Cooldown Checks: 15 calls per run (1 per target)
+- Cooldown Updates: 0-5 calls per run (1 per successful reply)
+- Cache Updates: 15 calls per run (last tweet ID storage)
+
+## VELOCITY BREAKDOWN
+
+### PER MINUTE (During Active Run)
+- Run Duration: 2-8 minutes (depending on eligible tweets)
+- Reads: 1.9-7.5 calls/min (15 timeline fetches ÷ 2-8 min)
+- Writes: 0-2.5 calls/min (0-5 replies ÷ 2-8 min)
+- Batch Processing: 8 targets per batch, 60s delay between batches
+
+### PER 10 MINUTES (Per Execution)
+- Timeline Reads: 0-15 (depends on cooldown status)
+- Reply Posts: 0-5 (limited by MAX_SNIPES_PER_RUN)
+- OpenAI Calls: 0-5 (matches reply count)
+- Redis Operations: ~20-35 (cooldowns + cache updates)
+
+### PER HOUR
+- Total Runs: 6 (every 10 minutes)
+- Read Calls: 0-90 (timeline fetches, avg ~45)
+- Write Calls: 0-30 (replies, avg ~15)
+- OpenAI Calls: 0-30 (reply generation, avg ~15)
+- Redis Operations: ~150-200 (cooldowns + cache)
+
+### PER DAY
+- Total Runs: 144
+- Read Calls: 0-2,160 (timeline fetches, avg ~1,080)
+- Write Calls: 0-720 (replies, avg ~360)
+- OpenAI Calls: 0-720 (reply generation, avg ~360)
+- Redis Operations: ~3,000-4,000 (cooldowns + cache)
+
+### PER MONTH
+- Read Calls: ~32,400 (timeline fetches)
+- Write Calls: ~10,800 (replies to tweets)
+- OpenAI Calls: ~10,800 (reply generation)
+- Redis Operations: ~120,000 (cooldown management + caching)
+
+## OPERATIONAL CHARACTERISTICS
+
+### Bot Behavior
+- Reply Pacing: 5-15 second jitter between posts (JITTER_MIN/MAX_MS)
+- Batch Processing: Max 8 targets per batch, 60s delay between batches
+- Run Duration: 2-8 minutes per execution (varies by eligible tweets)
+- Engagement Window: 10-20 minutes after tweet publication (FRESH_MAX_MIN)
+- Target Cooldown: 24 hours per target after successful reply
+
+### Target Management
+- Total Targets: 15 curated crypto Twitter accounts
+- User IDs: Pre-resolved (no API calls for resolution)
+- Batch Strategy: Process in groups of 8, respect API rate limits
+- Cooldown Strategy: 24-hour per-target cooldown to avoid spam
+
+### Rate Limiting Strategy
+- App-Level Limits: 80% quota utilization (READ_QUOTA_SAFETY=0.8)
+- Timeline Fetches: 90s between targets (10 requests per 15-minute window)
+- Burst Protection: 5s delay between API calls (API_BURST_DELAY_MS)
+- Global Daily Cap: 60 replies maximum (GLOBAL_MAX_PER_DAY)
+
+### Resource Usage Patterns
+- Peak Activity: 2-8 minutes every 10 minutes
+- Idle Time: 2-8 minutes between runs
+- Batch Operations: Timeline fetching, reply generation
+- Sequential Operations: Reply posting with jitter delays
+
+### Cooldown Management
+- Per-Target Cooldown: 24 hours after successful reply
+- Redis Storage: Persistent cooldown tracking
+- Skip Logic: Targets on cooldown skipped entirely (saves API calls)
+- Cache Strategy: Last tweet IDs cached to avoid re-processing
+
+## COST IMPLICATIONS
+
+### Twitter API v2 (Basic Plan)
+- Read Calls: ~32,400/month (well within 10k/month Basic limit)
+- Write Calls: ~10,800/month (well within 10k/month Basic limit)
+- **UPGRADE REQUIRED**: Current usage exceeds Basic plan limits
+
+### OpenAI API (gpt-4o-mini)
+- Total Calls: ~10,800/month
+- Token Usage: ~540,000 input tokens/month (~50 tokens per call)
+- Estimated Cost: ~$0.08/month (very low cost)
+
+### Upstash Redis
+- Operations: ~120,000/month
+- Data Storage: Minimal (cooldown timestamps + tweet IDs)
+- Estimated Cost: Free tier sufficient
+
+## EFFICIENCY METRICS
+
+### Hit Rate Optimization
+- Pre-resolved User IDs: 100% cache hit rate (no resolution API calls)
+- Cooldown Skip Rate: ~70-80% (targets skip due to 24h cooldown)
+- Fresh Tweet Rate: ~10-20% (most tweets outside engagement window)
+- Actual Reply Rate: ~2-5% of total runs result in replies
+
+### Speed Optimizations
+- User ID Resolution: 0ms (pre-cached)
+- Batch Processing: Parallel target processing where possible
+- Smart Skipping: Skip API calls for targets on cooldown
+- Fresh Tweet Filter: Only process tweets within engagement window
+
+## OPERATIONAL RISKS
+
+### API Rate Limit Risks
+- **HIGH RISK**: Current read usage (~32k/month) exceeds Basic plan (10k/month)
+- **MEDIUM RISK**: Write usage (~11k/month) exceeds Basic plan (10k/month)
+- **MITIGATION**: Upgrade to higher Twitter API plan required
+
+### Engagement Risks
+- Tweet Age Sensitivity: 10-20 minute window may miss opportunities
+- Cooldown Impact: 24h cooldown reduces engagement frequency
+- Target Dependency: Limited to 15 pre-selected accounts
+
+### Technical Risks
+- Redis Dependency: Cooldown system relies on Upstash uptime
+- GitHub Actions: Execution depends on GitHub's cron reliability
+- API Key Security: Stored as GitHub Secrets (secure)

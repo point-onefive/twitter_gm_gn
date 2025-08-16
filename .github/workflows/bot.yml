@@ -42,7 +42,7 @@ jobs:
           MAX_REPLIES: ${{ secrets.MAX_REPLIES || '8' }}
           MIN_FOLLOWERS: ${{ secrets.MIN_FOLLOWERS || '500' }}
           LANGS: ${{ secrets.LANGS || 'en,es,pt' }}
-          AUTO_LIKE: ${{ secrets.AUTO_LIKE || 'true' }}
+          AUTO_LIKE: ${{ secrets.AUTO_LIKE || 'false' }}
 
       - name: Report status
         if: always()

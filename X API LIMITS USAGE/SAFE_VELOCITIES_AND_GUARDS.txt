@@ -1,0 +1,213 @@
+# Twitter Bots Activity Metrics — Combined Safe Velocities (Basic Plan)
+# Generated: August 16, 2025
+
+# PURPOSE
+# Unified, safe-but-aggressive operating velocities for all three automations under X Basic plan.
+# Apply the “ADJUSTMENTS TO APPLY” blocks per-bot. Keep all other logic unchanged.
+
+# PLAN ASSUMPTIONS (Basic)
+# - POST /2/tweets: 100 req / 24h per USER, 1667 req / 24h per APP
+# - GET /2/users: 500 req / 24h per APP (≈15,000 / month)
+# - GET /2/users/:id/tweets: 10 req / 15m per APP
+# - GET /2/tweets/search/recent: 60 req / 15m per APP
+# - Safety buffer: ~20% below hard caps
+# - Per-user daily tweet cap is the true blocker (100/day on the single posting account)
+
+# GLOBAL GUARDS (Apply across all automations)
+GLOBAL_POSTS_PER_USER_PER_DAY_CAP = 98              # leave 2 posts of headroom for manual use
+GLOBAL_APP_READS_PER_DAY_CAP       = 400            # ~12,000/month safe with 20% buffer
+GLOBAL_RESET_GRACE_SECONDS         = 30             # wait after window resets before resuming
+GLOBAL_BACKOFF_MS                  = [2000,4000,8000]
+GLOBAL_OBEY_RATE_HEADERS           = true           # Use x-rate-limit-remaining/reset to pace
+
+# DAILY ALLOCATION TARGETS (Combined)
+# Posts (per USER per day): target ≈ 99 total  → GM/GN: 72, Comment Sniper: 26, Engagement Pool: 1
+# Reads (per APP per day ): target ≤ 400       → GM/GN: ~120, Comment Sniper: ~255, Engagement Pool: ~25
+
+=====================================================================
+# BOT: GM/GN Reply Automation  (Name in code: gm_gn)
+=====================================================================
+
+## AUTOMATION SCHEDULE
+Frequency: Every 2 hours (cron: "0 */2 * * *")
+Daily Runs: 12 executions
+Jitter: 0-2 minutes (optional)
+
+## API OPERATIONS PER RUN
+### READS
+- Search Recent Tweets: 1 call (max_results=10) using: (gm OR gn) -is:reply -is:retweet -has:links lang:en
+- (Optional) follower/following refresh: cached 24h; only refresh once/day
+
+### WRITES
+- Post Replies: 0-6 per run (TARGET: 6)   # ↓ from 8 to obey 100/day user cap across bots
+- Like Source Tweets: 0-6 per run (1 per reply)
+
+### OPENAI
+- 0-6 calls per run (~40 tokens each)
+
+## VELOCITY BREAKDOWN
+### PER MINUTE (Active)
+- Run Duration: ~12-15 mins
+- Reads: ~0.8 calls/min
+- Writes: ~0.8 calls/min (6 replies + 6 likes over ~15 mins)
+- Reply Spacing: 60–90s; Like Delay: 20–30s after each reply
+
+### PER DAY
+- Runs: 12
+- Reads: ~120 (search + occasional cache)
+- Posts: ~72 (replies) + ~72 (likes)
+- OpenAI: ~72
+
+### PER MONTH
+- Reads: ~3600
+- Posts: ~2160 replies + ~2160 likes
+- OpenAI: ~2160
+
+## OPERATIONAL CHARACTERISTICS
+- Social Priority: mutuals → followers → following → high-reach → others
+- Cache: follower/following 24h TTL; user profiles indefinite
+- Metrics collection: batch after 60+ mins
+
+## RATE LIMITING STRATEGY
+- Halt if GLOBAL_POSTS_PER_USER_PER_DAY_CAP reached
+- Respect GET /2/tweets/search/recent = 60/15m app (we are far below)
+- If rate headers show remaining ≤2 in window: pause until reset + GLOBAL_RESET_GRACE_SECONDS
+
+## ADJUSTMENTS TO APPLY (DO NOT REWRITE CODE)
+REPLIES_PER_RUN_TARGET = 6
+LIKE_AFTER_REPLY       = true
+REPLY_SPACING_MS_RANGE = [60000, 90000]
+LIKE_DELAY_MS_RANGE    = [20000, 30000]
+DAILY_POST_CAP         = 72              # replies for this bot
+READS_PER_DAY_CAP      = 140             # bot-local guard (global is 400)
+
+=====================================================================
+# BOT: Comment Sniper (Early Reply)  (Name in code: comment_sniper)
+=====================================================================
+
+## AUTOMATION SCHEDULE
+Frequency: Every 20 minutes (cron: "*/20 * * * *")    # ↑ from 10m to protect read budget
+Daily Runs: 72 executions
+Jitter: 0-1 minute/batch
+
+## API OPERATIONS PER RUN
+### READS
+- User Timelines: 0–4 calls per run  (MAX_TIMELINE_READS_PER_RUN = 4)
+  * Recent window: 10–20 mins after publication only
+  * max_results=10 per call
+### WRITES
+- Post Reply: 0–1 per run (MAX_SNIPES_PER_RUN = 1)
+### OPENAI
+- 0–1 calls per run (~50 tokens)
+
+## VELOCITY BREAKDOWN
+### PER MINUTE (Active)
+- Run Duration: 2–6 mins
+- Reads: ~0.7–2.0 calls/min (up to 4 timeline fetches)
+- Writes: 0–0.5 calls/min
+- Inter-target delay: ~90s between timeline calls to stay under 10/15m app window
+
+### PER DAY
+- Runs: 72
+- Reads: ~216 (avg 3/run; cap 4/run)
+- Posts: ≤26 (global cap, see adjustments)
+- OpenAI: ≤26
+- Redis ops: ~1,200–1,600 (cooldowns + cache)
+
+### PER MONTH
+- Reads: ~6,500
+- Posts: ≤780
+- OpenAI: ≤780
+
+## OPERATIONAL CHARACTERISTICS
+- Targets: curated list (pre-resolved IDs)
+- Cooldown: 24h per target after successful reply
+- Batch: process up to 4 targets/run; skip cooled-down targets early
+
+## RATE LIMITING STRATEGY
+- GET /2/users/:id/tweets: 10 req / 15m per APP → enforce 90s spacing between timeline calls
+- On remaining ≤2 in window: stop reads until reset + grace
+- Burst protection: 5s spacing between consecutive API calls
+
+## ADJUSTMENTS TO APPLY (DO NOT REWRITE CODE)
+CRON_EXPRESSION                 = "*/20 * * * *"
+MAX_TIMELINE_READS_PER_RUN      = 4
+TARGET_TIMELINE_READS_PER_RUN   = 3
+MAX_SNIPES_PER_RUN              = 1
+GLOBAL_DAILY_POSTS_CAP_FOR_BOT  = 26          # ensures account stays <100/day with other bots
+TARGET_COOLDOWN_HOURS_PER_USER  = 24
+API_BURST_DELAY_MS              = 5000
+INTER_TARGET_DELAY_MS           = 90000
+BOT_READS_PER_DAY_CAP           = 255         # ~7,650/month safe allocation
+
+=====================================================================
+# BOT: Engagement Pool & Shoutout  (Name in code: engagement_pool)
+=====================================================================
+
+## AUTOMATION SCHEDULE
+Daily Shoutout: Once/day (cron: "0 15 * * *")     # 11 AM EDT with ±10–20 min jitter
+Weekly Winner: Sundays (cron: "0 16 * * 0")
+Monthly Winner: 1st (cron: "0 17 1 * *")
+
+## API OPERATIONS PER DAILY RUN
+### READS
+- Mentions search: 1
+- Recent tweets: 1
+- Like checks: ~23 (1/tweet)
+- User details: 0–10 (cached)
+### WRITES
+- Post shoutout: 1
+### OPENAI
+- 1 call (80–120 tokens)
+
+## VELOCITY BREAKDOWN
+### PER DAY
+- Reads: ~25
+- Writes: ~1
+- OpenAI: ~1
+- Redis: ~100 (scoring + pool)
+
+### PER MONTH
+- Reads: ~750
+- Writes: ~35
+- OpenAI: ~35
+
+## OPERATIONAL CHARACTERISTICS
+- Points: Likes (1), Replies (3), Quotes (4), daily cap 7/user
+- Cooldown: 7-day exclusion after winning shoutout
+- Filters: ORIGINAL_POSTS_ONLY=true recommended
+
+## RATE LIMITING STRATEGY
+- 2–3 seconds between read calls
+- Skip like checks if app read budget is low for the day
+
+## ADJUSTMENTS TO APPLY (DO NOT REWRITE CODE)
+DAILY_SHOUTOUT_CRON          = "0 15 * * *"
+JITTER_MINUTES_RANGE         = [10,20]
+ORIGINAL_POSTS_ONLY          = true
+DAILY_READ_BUDGET_FOR_BOT    = 30
+DAILY_WRITE_BUDGET_FOR_BOT   = 2
+
+=====================================================================
+# CROSS-BOT COORDINATION (ENFORCE BEFORE EACH CALL)
+=====================================================================
+
+## DAILY POST BUDGET (PER USER)
+- If (posts_today_user >= GLOBAL_POSTS_PER_USER_PER_DAY_CAP): halt all write ops across bots.
+
+## DAILY READ BUDGET (PER APP)
+- If (reads_today_app >= GLOBAL_APP_READS_PER_DAY_CAP): halt noncritical reads (only mentions/search for GM/GN allowed).
+
+## PER-15-MIN WINDOWS (PER APP)
+- GET /2/users/:id/tweets  → hard cap 10/15m; enforce INTER_TARGET_DELAY_MS=90,000 in sniper.
+- GET /2/tweets/search/recent → you’re far below 60/15m; keep it to ≤1 every 2h in GM/GN.
+
+## RATE-HEADER AWARENESS
+- If x-rate-limit-remaining ≤ 2: pause this endpoint until x-rate-limit-reset + GLOBAL_RESET_GRACE_SECONDS.
+
+## ORDER OF SHEDDING (WHEN LOW ON QUOTA)
+1) Comment Sniper: reduce reads/run from 4→2, then stop posting (still read minimal).  
+2) GM/GN: reduce replies/run from 6→4.  
+3) Engagement Pool: skip like-checks; still post 1 shoutout if possible.
+
+# END

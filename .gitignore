@@ -26,3 +26,5 @@ pids
 *.pid
 *.seed
 *.pid.lock
+NEW_PROJECT_SETUP.md
+BOT_ACTIVITY_METRICS.txt
