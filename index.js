@@ -835,7 +835,7 @@ async function runModeB(config, storage) {
     try {
       const searchParams = {
         query: '(gm OR gn) -is:reply -is:retweet -has:links lang:en',
-        max_results: 10,
+        max_results: 15,
         expansions: ['author_id'],
         'tweet.fields': ['author_id', 'created_at', 'text'],
         'user.fields': ['public_metrics', 'verified']
