@@ -284,7 +284,7 @@ The bot maintains state in `storage.json`:
       }
     }
   ],
-  "myUserId": "1870158361565519872"
+  "myUserId": "YOUR_USER_ID_HERE"
 }
 ```
 
@@ -348,7 +348,7 @@ Found a bug or want to add a feature? Pull requests welcome!
 
 If this bot helps grow your Twitter presence, consider:
 - ⭐ Starring this repository
-- 🐦 Following [@point-onefive](https://twitter.com/point-onefive)
+- 🐦 Following the developer on Twitter
 - 💡 Sharing your success stories
 
 ---
