@@ -1,70 +1,49 @@
 # 🤖 Twitter GM/GN Engagement Bot
 
-A sophisticated Node.js bot that automatically finds and replies to "gm" (good morning) and "gn" (good night) tweets with AI-generated, contextual responses to organically grow your Twitter engagement and follower count.
+A sophisticated Node.js bot that automatically finds and replies to "gm" (good morning) and "gn" (good night) tweets with AI-generated responses to grow your Twitter engagement organically.
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Automation](https://img.shields.io/badge/Automation-GitHub%20Actions-orange.svg)
 ![Cloud](https://img.shields.io/badge/Storage-Upstash%20Redis-red.svg)
 
-## 🚀 **Fully Automated Setup Available!**
+## 🚀 **Fully Automated & Serverless**
 
-**New: Complete hands-off automation with GitHub Actions!**
-- ✅ **100% Free serverless execution**
-- ✅ **Runs every 10 minutes automatically** 
-- ✅ **Cloud state persistence**
-- ✅ **Zero maintenance required**
-
-**👉 [Complete Automation Setup Guide](AUTOMATION_SETUP.md)**
-
-## ✨ Features
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Twitter API](https://img.shields.io/badge/Twitter%20API-v2-1DA1F2.svg)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5-412991.svg)
+- ✅ **Runs every 2 hours automatically** via GitHub Actions
+- ✅ **100% serverless** - no server maintenance required
+- ✅ **Cloud state persistence** with Upstash Redis
+- ✅ **Zero ongoing costs** (uses free GitHub Actions)
 
 ## 🎯 What It Does
 
-This bot helps you build genuine Twitter engagement by:
-
-- **🔍 Smart Discovery**: Automatically searches for crypto/web3 "gm" and "gn" tweets
-- **🤖 AI-Powered Replies**: Uses OpenAI GPT-5 to generate warm, contextual responses under 12 words
-- **💖 Auto-Engagement**: Automatically likes the source tweet after replying
-- **� Analytics Tracking**: Logs all interactions for A/B testing and performance analysis
-- **�🛡️ Safety First**: Filters out sensitive content, spam, and inappropriate tweets
-- **📈 Organic Growth**: Builds real relationships through genuine, helpful interactions
-- **⚡ Rate Limited**: Respects Twitter's API limits and avoids looking robotic
+- **🔍 Smart Discovery**: Searches for recent "gm" and "gn" tweets
+- **🤖 AI-Powered Replies**: Uses OpenAI GPT-4 for contextual responses  
+- **️ Safety First**: Filters out links, mentions, and sensitive content
+- **� Social Priority**: Targets followers and high-engagement accounts first
+- **⚡ Rate Limited**: Respects Twitter API limits with intelligent pacing
 
 ## ✨ Key Features
 
 ### 🧠 Intelligent Filtering
-- ✅ Targets crypto/web3 community with "gm" and "gn" focus
-- ✅ Allows GIFs, images, and memes (common in crypto Twitter)
-- ❌ Skips tweets with links or @mentions
-- ❌ Avoids sensitive topics (medical, political, tragic content)
-- ❌ Won't reply to the same user within 48 hours
-- ❌ Prevents duplicate replies across restarts
+- ✅ Finds 15 GM/GN tweets per run
+- ✅ Replies to up to 15 tweets per run (configurable)
+- ❌ Skips tweets with links or @mentions  
+- ❌ Avoids sensitive topics and controversial content
+- ❌ Won't reply to the same user within 24 hours
+- ❌ Prevents duplicate replies with persistent storage
 
 ### 🎨 Smart Reply Generation
-- Uses GPT-5 for optimal cost efficiency and quality
-- Mirrors the original tweet's language and emoji style
-- Stays warm and friendly, never salesy
-- Adapts to crypto/business Twitter terminology
-- Automatically skips controversial content
-- Generates unique responses for each tweet
+- Uses OpenAI GPT-4 for natural, contextual responses
+- Mirrors original tweet's language and emoji style
+- Adapts to different parts of day (morning/evening)
+- Detects and matches multiple languages (English, Spanish, Portuguese)
+- Keeps responses warm and friendly, never promotional
 
-### � Enhanced Engagement
-- **Auto-like feature**: Automatically likes source tweets after replying
-- **Outcome logging**: Tracks all interactions for analytics
-- **Performance metrics**: Collects engagement data (likes, replies, retweets)
-- **A/B testing ready**: Built-in data structure for testing different strategies
-
-### �🔒 Built-in Safety
-- Random 5-20 second delays between replies
-- Maximum ~15 replies per hour
-- Graceful error handling and API backoff
-- Dry-run mode for safe testing
-- Persistent storage to avoid duplicates
-- Smart filtering for offensive content
+### 📈 Engagement Strategy
+- **Social Prioritization**: Replies to followers and mutual follows first
+- **High-Value Targeting**: Prioritizes accounts with larger follower counts
+- **Smart Pacing**: 2-5 second delays between replies for natural behavior
+- **Auto-Like Optional**: Can automatically like source tweets (disabled by default)
 
 ## 🚀 Quick Start
 
@@ -73,11 +52,12 @@ This bot helps you build genuine Twitter engagement by:
 - Node.js 18+ installed
 - Twitter Developer Account with API v2 access
 - OpenAI API account with credits
+- Upstash Redis account (free tier available)
 
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/point-onefive/twitter_gm_gn.git
+git clone https://github.com/yourusername/twitter_gm_gn.git
 cd twitter_gm_gn
 npm install
 ```
@@ -87,17 +67,209 @@ npm install
 #### Twitter API Setup:
 1. Go to [Twitter Developer Portal](https://developer.twitter.com/en/portal/dashboard)
 2. Create a new app with **Read and Write** permissions
-3. Generate and copy:
-   - API Key & Secret
-   - Access Token & Secret
-   - Client ID & Secret (optional)
+3. Generate API Key, API Secret, Access Token, and Access Secret
 
 #### OpenAI API Setup:
 1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
 2. Create an API key
-3. Add credits to your account ($5-10 lasts a long time)
+3. Add credits to your account ($5-10 lasts months)
+
+#### Upstash Redis Setup:
+1. Go to [Upstash Console](https://console.upstash.com/)
+2. Create a new Redis database
+3. Copy the REST URL and Token
 
 ### 3. Configure Environment
+
+Copy `.env.example` to `.env` and fill in your credentials:
+
+```bash
+# Twitter/X API Credentials
+X_API_KEY=your_api_key_here
+X_API_SECRET=your_api_secret_here  
+X_ACCESS_TOKEN=your_access_token_here
+X_ACCESS_SECRET=your_access_token_secret_here
+
+# OpenAI API Key
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Upstash Redis (for automation)
+UPSTASH_URL=your_upstash_redis_url_here
+UPSTASH_TOKEN=your_upstash_redis_token_here
+
+# Bot Configuration (Optional)
+MAX_REPLIES=15
+MIN_FOLLOWERS=500
+LANGS=en,es,pt
+AUTO_LIKE=false
+```
+
+### 4. Test Locally
+
+```bash
+# Safe test run (shows what it would do)
+node index.js --mode=b --dry --limit=5
+
+# Live mode (actually posts replies)  
+node index.js --mode=b --limit=3
+```
+
+## 🤖 GitHub Actions Automation
+
+### Setup Automation
+
+1. **Fork this repository** to your GitHub account
+
+2. **Add Repository Secrets** in GitHub:
+   - Go to Settings → Secrets and variables → Actions
+   - Add each environment variable as a secret:
+     - `X_API_KEY`
+     - `X_API_SECRET` 
+     - `X_ACCESS_TOKEN`
+     - `X_ACCESS_SECRET`
+     - `OPENAI_API_KEY`
+     - `UPSTASH_URL`
+     - `UPSTASH_TOKEN`
+
+3. **Optional Configuration Secrets**:
+   - `MAX_REPLIES` (default: 8)
+   - `MIN_FOLLOWERS` (default: 500) 
+   - `LANGS` (default: en,es,pt)
+   - `AUTO_LIKE` (default: false)
+
+4. **Enable Actions**: The bot will automatically run every 2 hours
+
+### Manual Trigger
+
+- Go to Actions tab in your repository
+- Click "GM/GN Bot Automation"
+- Click "Run workflow" to trigger manually
+
+## 📊 Usage & Performance
+
+### Current Configuration
+- **Schedule**: Every 2 hours (12 runs per day)
+- **Volume**: Up to 15 replies per run (180 replies per day max)
+- **Runtime**: ~3-5 minutes per run
+- **API Usage**: ~10% of Twitter Basic plan limits
+
+### Expected Results
+- **Week 1**: 10-25 new followers
+- **Month 1**: 50-150 new followers
+- **Month 3**: 200-600 new followers
+- **Plus**: Increased engagement on your own content
+
+## 🗂️ Project Structure
+
+```
+twitter_gm_gn/
+├── index.js              # Main bot logic and AI integration
+├── run.js                # GitHub Actions automation runner
+├── package.json          # Dependencies and configuration  
+├── .env.example          # Environment variable template
+├── .github/workflows/    # GitHub Actions automation
+│   └── bot.yml          # Automation schedule and config
+├── .gitignore           # Protects sensitive files
+└── README.md            # This documentation
+```
+
+## 🔧 Command Line Options
+
+```bash
+node index.js [options]
+
+Options:
+  --mode=b               Live search mode (default)
+  --limit=NUMBER         Maximum replies per run (default: 8)
+  --dry                  Dry run mode (shows output without posting)
+  --minFollowers=NUMBER  Minimum follower count to target (default: 500)
+  --langs=en,es,pt       Languages to target (default: en,es,pt)
+  --noLike               Disable auto-like feature
+```
+
+### Examples
+
+```bash
+# Safe test run
+node index.js --mode=b --dry --limit=3
+
+# Live run with custom settings  
+node index.js --mode=b --limit=10 --minFollowers=1000
+
+# Spanish and Portuguese only
+node index.js --mode=b --langs=es,pt --dry
+```
+
+## ⚠️ Rate Limits & Best Practices
+
+### Twitter API Basic Plan
+- **Posts**: Up to 1,667 per day (bot uses ~180 max)
+- **Searches**: 60 per 15-minute window (bot uses 12 per day)
+- **Safe Usage**: Bot operates well within all limits
+
+### Best Practices
+- **Start Small**: Begin with 3-5 replies per run
+- **Monitor Performance**: Check follower growth and engagement
+- **Quality Focus**: Better to reply to fewer, high-value accounts
+- **Respect Community**: Maintain genuine, helpful interactions
+
+## 🛡️ Safety Features
+
+- **Smart Filtering**: Avoids controversial or sensitive content
+- **Rate Limiting**: Built-in delays and API limit compliance
+- **Duplicate Prevention**: Won't reply to same user within 24 hours  
+- **Error Handling**: Graceful failures with automatic retry logic
+- **Persistent Storage**: Maintains state across restarts and automation runs
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+**Bot Not Running in Actions**
+- Check if repository secrets are properly set
+- Verify GitHub Actions is enabled for your repository
+- Review Actions tab for error logs
+
+**Rate Limit Errors**
+- Normal with heavy usage - bot will automatically retry
+- Consider reducing `MAX_REPLIES` if frequent
+
+**No Tweets Found**
+- GM/GN tweets are most common during morning/evening hours
+- Try running at different times of day
+- Check if minimum follower threshold is too high
+
+**API Authentication Errors**
+- Verify all API credentials are correctly set in GitHub secrets
+- Ensure Twitter app has Read and Write permissions
+- Check that API keys haven't expired
+
+## 📈 Optimization Tips
+
+1. **Target Active Hours**: GM tweets peak 6-10 AM, GN tweets peak 9 PM-12 AM
+2. **Quality Over Quantity**: Better to reply to 5 high-value accounts than 15 random ones
+3. **Monitor Metrics**: Track follower growth and engagement rates
+4. **Adjust Targeting**: Experiment with `MIN_FOLLOWERS` threshold
+5. **Language Strategy**: Focus on languages you're comfortable engaging in
+
+## 📄 License
+
+MIT License - Feel free to modify and use for your own growth!
+
+## 🤝 Contributing
+
+Found a bug or want to improve the bot? Pull requests welcome!
+
+## ⭐ Support
+
+If this bot helps grow your Twitter presence:
+- ⭐ Star this repository
+- 🔄 Share your success stories  
+- 🐛 Report issues to help improve the bot
+
+---
+
+**Disclaimer**: Use responsibly and in compliance with Twitter's Terms of Service. This tool is for educational and personal use only.
 
 Copy your credentials to `.env`:
 
