@@ -53,7 +53,7 @@ async function upstashSet(key, value) {
         Authorization: `Bearer ${process.env.UPSTASH_TOKEN}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify([body])
+      body: body  // Remove the extra JSON.stringify([body])
     });
     
     if (!res.ok) {
