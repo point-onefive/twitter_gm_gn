@@ -966,7 +966,7 @@ async function runModeB(config, storage) {
     }
     
     const replyText = await generateReply(tweet, config.testMode, config);
-    if (!replyText) {
+    if (!replyText || replyText === 'SKIP') {
       console.log(`⏭️  No suitable reply generated for ${tweet.id}`);
       continue;
     }
