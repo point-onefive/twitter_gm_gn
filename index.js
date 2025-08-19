@@ -842,8 +842,9 @@ async function runModeB(config, storage) {
         searchParams.since_id = storage.sinceId;
       }
       
+      let response;
       try {
-        const response = await twitter.v2.search(searchParams);
+        response = await twitter.v2.search(searchParams);
         tweets = response._realData?.data || [];
         meta = response._realData?.meta;
       } catch (searchError) {
@@ -852,9 +853,9 @@ async function runModeB(config, storage) {
           console.log('⚠️  Invalid since_id detected, retrying without it...');
           delete searchParams.since_id;
           storage.sinceId = null; // Clear the problematic since_id
-          const retryResponse = await twitter.v2.search(searchParams);
-          tweets = retryResponse._realData?.data || [];
-          meta = retryResponse._realData?.meta;
+          response = await twitter.v2.search(searchParams);
+          tweets = response._realData?.data || [];
+          meta = response._realData?.meta;
         } else {
           throw searchError; // Re-throw if it's a different error
         }
