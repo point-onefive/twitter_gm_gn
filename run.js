@@ -4,7 +4,11 @@ dotenv.config();
 
 import fs from 'fs/promises';
 
-// Upstash Redis helpers (REST API, no client lib needed)
+// Up      refreshFollowers: false,
+      refreshFollowing: false,
+      targetingMode: 'smart',
+      autoLike: process.env.AUTO_LIKE === 'true', // default false for fast runs
+      langs: (process.env.LANGS || 'en,es,pt').split(',') Redis helpers (REST API, no client lib needed)
 async function upstashGet(key) {
   if (!process.env.UPSTASH_URL || !process.env.UPSTASH_TOKEN) {
     console.log('⚠️  No Upstash credentials - falling back to local storage');
@@ -147,7 +151,7 @@ async function runAutomation() {
       refreshFollowers: false,
       refreshFollowing: false,
       targetingMode: 'smart',
-      autoLike: process.env.AUTO_LIKE !== 'false', // default true
+      autoLike: process.env.AUTO_LIKE === 'true', // default false (fast runs)
       langs: (process.env.LANGS || 'en,es,pt').split(',')
     };
     
