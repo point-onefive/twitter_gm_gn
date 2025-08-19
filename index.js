@@ -444,11 +444,13 @@ async function likeTweet(tweetId) {
   } catch (error) {
     console.error(`❌ Failed to like tweet ${tweetId}:`, error.message);
     if (error.code === 429) {
-      console.log('⏳ Like rate limit hit - backing off for 5 minutes...');
-      await delay(300000, 300000); // 5 minute backoff for rate limits
+      console.log('⏳ Like rate limit hit - skipping remaining likes...');
+      // Don't wait 5 minutes in automated runs - just skip
+      return false;
     } else if (error.code >= 400) {
-      console.log('⏳ Backing off for 120 seconds...');
-      await delay(120000, 120000);
+      console.log('⏳ Like error - skipping this tweet...');
+      // Don't wait 2 minutes - just skip
+      return false;
     }
     return false;
   }
@@ -807,8 +809,8 @@ async function replyToTweet(tweetId, replyText, isDry = false, sourceTweetId = n
   } catch (error) {
     console.error(`❌ Failed to reply to ${tweetId}:`, error.message);
     if (error.code >= 400) {
-      console.log('⏳ Backing off for 120 seconds...');
-      await delay(120000, 120000);
+      console.log('⏳ Reply error - continuing with next tweet...');
+      // Don't wait 2 minutes - just continue
     }
     return { success: false, replyTweetId: null };
   }
