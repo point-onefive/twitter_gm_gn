@@ -759,20 +759,15 @@ async function generateReply(tweet, useTestMode = false, config = {}) {
     const reply = response.choices[0]?.message?.content?.trim() || '';
     
     if (!reply || reply === 'SKIP' || reply.length > 140) {
-      console.log('🔄 AI reply was SKIP or invalid, using fallback...');
-      return getFallbackReply(lang, partOfDay, weekend);
+      console.log('🔄 AI reply was SKIP or invalid, skipping tweet...');
+      return 'SKIP';
     }
     
     return reply;
   } catch (error) {
     console.error('Error generating reply:', error.message);
-    console.log('🔄 Error occurred, using fallback...');
-    const lang = config.forceLang || detectLanguage(tweet);
-    const partOfDay = detectPartOfDay(tweet.text);
-    const weekend = config.forceTime 
-      ? config.forceTime === 'weekend' 
-      : isWeekend(tweet.created_at);
-    return getFallbackReply(lang, partOfDay, weekend);
+    console.log('🔄 AI error occurred, skipping tweet...');
+    return 'SKIP';
   }
 }
 
