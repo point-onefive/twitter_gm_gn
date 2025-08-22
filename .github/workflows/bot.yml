@@ -2,7 +2,7 @@ name: GM/GN Bot Automation
 
 on:
   schedule:
-    - cron: "0 */1 * * *"   # Every hour (24 runs per day)
+    - cron: "0 */2 * * *"   # Every 2 hours (12 runs per day)
   workflow_dispatch:         # Allow manual run
 
 jobs:
