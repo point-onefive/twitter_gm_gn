@@ -310,29 +310,29 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
   const isFollower = followersSet.has(authorId);
   const isFollowing = followingSet.has(authorId);
   
-  let bucket = 4; // default "others"
+  let bucket = 5; // default "others"
   let bucketName = "others";
   
-  if (isFollower && isFollowing) {
+  if (isVerified) {
+    // Verified users get absolute top priority regardless of everything else
     bucket = 0;
+    bucketName = "verified";
+  } else if (isFollower && isFollowing) {
+    bucket = 1;
     bucketName = "mutual";
   } else if (isFollower) {
-    bucket = 1;
+    bucket = 2;
     bucketName = "follower";
   } else if (isFollowing) {
-    bucket = 2;
+    bucket = 3;
     bucketName = "following";
-  } else if (isVerified) {
-    // Verified users get high priority regardless of follower count
-    bucket = 3;
-    bucketName = "verified";
   } else if (followersCount >= minFollowers) {
-    bucket = 3;
+    bucket = 4;
     bucketName = "high-reach";
   }
   
   // Strategic filtering: skip very low-value targets when we have limited slots
-  const isLowValue = followersCount < 50 && bucket > 3 && !isVerified;
+  const isLowValue = followersCount < 50 && bucket > 4 && !isVerified;
   
   const secondary = -followersCount; // Higher follower count first (negative for ASC sort)
   const createdAt = Date.parse(tweet.created_at || 0);
