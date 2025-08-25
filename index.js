@@ -682,11 +682,6 @@ function containsSensitiveContent(text) {
 function shouldSkipTweet(tweet) {
   const text = tweet.text || '';
   
-  // Skip if contains links
-  if (text.includes('http')) {
-    return { skip: true, reason: 'Contains links' };
-  }
-  
   // Skip if it's a direct reply (starts with @username)
   if (text.trim().startsWith('@')) {
     return { skip: true, reason: 'Is a direct reply' };
@@ -837,7 +832,7 @@ async function runModeB(config, storage) {
     console.log('🌐 LIVE MODE: Using real Twitter API');
     try {
       const searchParams = {
-        query: '(gm OR gn) -is:reply -is:retweet -has:links lang:en',
+        query: '(gm OR gn) -is:reply -is:retweet lang:en',
         max_results: 15,
         expansions: ['author_id'],
         'tweet.fields': ['author_id', 'created_at', 'text'],
