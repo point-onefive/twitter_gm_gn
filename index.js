@@ -305,6 +305,7 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
   const authorId = tweet.author_id;
   const user = userById[authorId];
   const followersCount = user?.public_metrics?.followers_count || 0;
+  const isVerified = user?.verified === true;
   
   const isFollower = followersSet.has(authorId);
   const isFollowing = followingSet.has(authorId);
@@ -321,13 +322,17 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
   } else if (isFollowing) {
     bucket = 2;
     bucketName = "following";
+  } else if (isVerified) {
+    // Verified users get high priority regardless of follower count
+    bucket = 3;
+    bucketName = "verified";
   } else if (followersCount >= minFollowers) {
     bucket = 3;
     bucketName = "high-reach";
   }
   
   // Strategic filtering: skip very low-value targets when we have limited slots
-  const isLowValue = followersCount < 50 && bucket > 3;
+  const isLowValue = followersCount < 50 && bucket > 3 && !isVerified;
   
   const secondary = -followersCount; // Higher follower count first (negative for ASC sort)
   const createdAt = Date.parse(tweet.created_at || 0);
@@ -340,7 +345,8 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
     followersCount,
     isFollower,
     isFollowing,
-    isLowValue
+    isLowValue,
+    isVerified
   };
 }
 
@@ -943,7 +949,7 @@ async function runModeB(config, storage) {
     
     // Show priority information
     const priorityInfo = tweet.priority 
-      ? `prio[${tweet.priority.bucket}:${tweet.priority.bucketName}] followers=${tweet.priority.followersCount} followerOfMe=${tweet.priority.isFollower} tweet=${tweet.id}`
+      ? `prio[${tweet.priority.bucket}:${tweet.priority.bucketName}] followers=${tweet.priority.followersCount} followerOfMe=${tweet.priority.isFollower} verified=${tweet.priority.isVerified} tweet=${tweet.id}`
       : `tweet=${tweet.id}`;
     
     console.log(`📱 Processing ${priorityInfo}: "${tweet.text}"`);
