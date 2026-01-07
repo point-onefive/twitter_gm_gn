@@ -351,7 +351,7 @@ const PERSONALITIES = {
 3. No perfect punctuation. Skip periods at the end. Commas are fine.
 4. EMOJI: Randomly decide - sometimes use one emoji, sometimes none. Mix it up. Pick randomly from: 👀 ✌️ 🤝 ☕ 😂 🙏 💯. NEVER use 🔥💪⚡🚀. Vary your choice each time.
 5. Sound like a normal person scrolling twitter, not a motivational poster.
-6. About 20% of the time, include a subtle hint about connecting/mutuals. Vary these naturally:
+6. About 40% of the time, include a subtle hint about connecting/mutuals. Vary these naturally:
    - "happy to connect btw"
    - "mutuals?"
    - "lets be mutuals"
