@@ -46,66 +46,56 @@ function hasEmoji(text) {
   return emojiRegex.test(text);
 }
 
-// Handcrafted fallbacks by language
+// Handcrafted fallbacks - casual lowercase English only
 const FALLBACKS = {
   en: {
     morning: { 
-      weekday: ["New day, new wins.", "Momentum starts now.", "Let's make moves.", "Rise and grind."],
-      weekend: ["Easy pace today.", "Weekend vibes.", "Fresh start weekend.", "Enjoy the day."] 
+      weekday: [
+        "gm hope today is good to you",
+        "morning, have a solid day",
+        "gm gm",
+        "gm hope it goes well",
+        "morning, happy to connect btw",
+        "gm lets get it",
+        "gm have a good one",
+        "gm, mutuals? 👀",
+        "morning ☕",
+        "gm, down to connect btw"
+      ],
+      weekend: [
+        "gm enjoy the weekend",
+        "morning, take it easy today",
+        "gm gm weekend vibes",
+        "gm hope you get some rest",
+        "morning, happy to connect btw ✌️",
+        "gm have a chill one",
+        "gm enjoy the day off",
+        "gm, lets be mutuals tho"
+      ] 
     },
     night: { 
-      weekday: ["Reset for tomorrow.", "Rest up, champion.", "Prep for wins.", "Sleep well."],
-      weekend: ["Unwind well.", "Recharge time.", "Weekend rest.", "Peaceful night."] 
-    }
-  },
-  es: {
-    morning: { 
-      weekday: ["Nuevo día, nuevas metas.", "A por el día.", "Vamos con todo.", "Buenos días."],
-      weekend: ["Fin de semana genial.", "Relájate y disfruta.", "Buenos días.", "Tiempo libre."] 
-    },
-    night: { 
-      weekday: ["Descansar bien.", "Preparar mañana.", "Buenas noches.", "A recargar."],
-      weekend: ["Relajarse bien.", "Noche tranquila.", "Buen descanso.", "Buenas noches."] 
-    }
-  },
-  pt: {
-    morning: { 
-      weekday: ["Novo dia, novas metas.", "Vamos em frente.", "Bom dia!", "Energia total."],
-      weekend: ["Fim de semana bom.", "Relaxar e curtir.", "Bom dia!", "Tempo livre."] 
-    },
-    night: { 
-      weekday: ["Descansar bem.", "Preparar amanhã.", "Boa noite!", "Recarregar."],
-      weekend: ["Relaxar bem.", "Noite tranquila.", "Boa noite!", "Bom descanso."] 
-    }
-  },
-  fr: {
-    morning: { 
-      weekday: ["Nouveau jour, nouveaux buts.", "Allons-y!", "Bonjour!", "Énergie positive."],
-      weekend: ["Bon week-end.", "Détente et plaisir.", "Bonjour!", "Temps libre."] 
-    },
-    night: { 
-      weekday: ["Bien se reposer.", "Préparer demain.", "Bonne nuit!", "Recharger."],
-      weekend: ["Bien se détendre.", "Nuit paisible.", "Bonne nuit!", "Bon repos."] 
-    }
-  },
-  de: {
-    morning: { 
-      weekday: ["Neuer Tag, neue Ziele.", "Los geht's!", "Guten Morgen!", "Volle Energie."],
-      weekend: ["Schönes Wochenende.", "Entspannen und genießen.", "Guten Morgen!", "Freie Zeit."] 
-    },
-    night: { 
-      weekday: ["Gut ausruhen.", "Morgen vorbereiten.", "Gute Nacht!", "Aufladen."],
-      weekend: ["Gut entspannen.", "Ruhige Nacht.", "Gute Nacht!", "Gute Erholung."] 
-    }
-  },
-  it: {
-    morning: { 
-      weekday: ["Nuovo giorno, nuovi obiettivi.", "Andiamo!", "Buongiorno!", "Energia piena."],
-      weekend: ["Buon weekend.", "Rilassarsi e divertirsi.", "Buongiorno!", "Tempo libero."] 
-    },
-    night: { 
-      weekday: ["Riposare bene.", "Preparare domani.", "Buonanotte!", "Ricaricare."],
-      weekend: ["Rilassarsi bene.", "Notte tranquilla.", "Buonanotte!", "Buon riposo."] 
+      weekday: [
+        "night night sleep well",
+        "gn get some rest",
+        "good night, happy to connect btw",
+        "night, recharge for tomorrow",
+        "gn gn",
+        "sleep well",
+        "gn, mutuals?",
+        "night night",
+        "gn hope you rest up",
+        "good night, down to connect btw ✌️"
+      ],
+      weekend: [
+        "gn enjoy the rest",
+        "night night, relax well",
+        "gn have a peaceful one",
+        "good night, lets be mutuals tho",
+        "gn gn",
+        "sleep well, happy to connect btw",
+        "night, recharge",
+        "gn enjoy the weekend"
+      ] 
     }
   }
 };
@@ -352,6 +342,41 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
 
 // Bot Personalities - Easy to switch!
 const PERSONALITIES = {
+  casual: {
+    name: "Casual & Human",
+    prompt: `You write casual, human-sounding replies to gm/gn tweets. CRITICAL RULES:
+
+1. ALL LOWERCASE. No capital letters ever. Not even for "I" or starting sentences.
+2. Keep under 12 words. Be concise.
+3. No perfect punctuation. Skip periods at the end. Commas are fine.
+4. EMOJI: Randomly decide - sometimes use one emoji, sometimes none. Mix it up. Pick randomly from: 👀 ✌️ 🤝 ☕ 😂 🙏 💯. NEVER use 🔥💪⚡🚀. Vary your choice each time.
+5. Sound like a normal person scrolling twitter, not a motivational poster.
+6. About 20% of the time, include a subtle hint about connecting/mutuals. Vary these naturally:
+   - "happy to connect btw"
+   - "mutuals?"
+   - "lets be mutuals"
+   - "down to connect"
+   - "follow back?"
+   - "building my timeline with good people"
+7. Be warm but not over-the-top. Relatable > motivational.
+8. Normal abbreviations only: btw, rn, tho, lol - don't overdo it
+9. If the tweet is sensitive/negative/controversial, output exactly: SKIP
+
+Good examples (mix of emoji and no emoji):
+- "gm hope today treats you well"
+- "morning, happy to connect btw 🤝"
+- "gm gm have a good one"
+- "night night sleep well"
+- "gm, mutuals? 👀"
+- "hope you get some rest"
+- "gm coffee is calling ☕"
+- "good night, lets be mutuals tho"
+- "gm have a solid day 🙏"
+- "night, down to connect btw"
+- "gm gm ✌️"
+- "gn, rest up"`
+  },
+
   friendly: {
     name: "Friendly & Natural",
     prompt: `You write natural, conversational replies to "gm/gn" tweets. Keep under 15 words.
@@ -402,7 +427,7 @@ Examples: "Morning! Coffee level: desperately needed ☕", "gm to everyone excep
 };
 
 // Current personality - CHANGE THIS TO SWITCH STYLES!
-const CURRENT_PERSONALITY = 'motivational'; // Options: friendly, motivational, crypto, zen, witty
+const CURRENT_PERSONALITY = 'casual'; // Options: casual, friendly, motivational, crypto, zen, witty
 
 // Initialize APIs
 const twitter = new TwitterApi({
@@ -719,16 +744,16 @@ async function generateReply(tweet, useTestMode = false, config = {}) {
     
     if (useTestMode) {
       const testReplies = [
-        "Rise and conquer! What's your first win today? 💪",
-        "Every sunrise brings new possibilities! ✨",
-        "Good morning, legend! What are you grateful for today? 🙏",
-        "New day, new chances to be amazing! 🚀",
-        "Morning energy activated! What's your power move today? ⚡",
-        "Sweet dreams fuel tomorrow's victories! 🌙",
-        "Rest well, you've earned it! What made you proud today? ✨",
-        "Good night, dreamer! What are you manifesting? 💫",
-        "Sleep tight and wake up unstoppable! 🔥",
-        "Another day closer to your dreams! Keep pushing! 💯"
+        "gm hope today treats you well",
+        "morning, happy to connect btw",
+        "gm gm have a good one",
+        "gm, mutuals? 👀",
+        "gm lets get it",
+        "night night sleep well",
+        "gn get some rest",
+        "gn, down to connect btw ✌️",
+        "gm have a solid day",
+        "good night, lets be mutuals tho"
       ];
       
       console.log('🧪 Using test reply (test mode enabled)');
@@ -736,13 +761,14 @@ async function generateReply(tweet, useTestMode = false, config = {}) {
       return randomReply;
     }
     
-    // Build context-aware system prompt
-    const systemPrompt = buildSystemPrompt({ lang, partOfDay, weekend, allowEmoji });
+    // Use personality prompt (casual by default)
+    const personality = PERSONALITIES[CURRENT_PERSONALITY] || PERSONALITIES.casual;
+    const systemPrompt = personality.prompt;
     
     // Use real OpenAI API
-    console.log('🤖 Generating AI reply...');
+    console.log(`🤖 Generating AI reply (${personality.name})...`);
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5.2',
       messages: [
         {
           role: 'system',
@@ -754,7 +780,7 @@ async function generateReply(tweet, useTestMode = false, config = {}) {
         }
       ],
       temperature: 0.8,
-      max_tokens: 50
+      max_completion_tokens: 50
     });
 
     const reply = response.choices[0]?.message?.content?.trim() || '';
