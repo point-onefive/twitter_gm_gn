@@ -47,7 +47,7 @@ function hasEmoji(text) {
 }
 
 // Handcrafted fallbacks - casual lowercase English only
-// Split into regular and mutuals-friendly versions (mutuals only for verified users)
+// Handcrafted fallbacks - casual lowercase English only
 const FALLBACKS = {
   en: {
     morning: { 
@@ -101,41 +101,6 @@ const FALLBACKS = {
   }
 };
 
-// Mutuals-friendly fallbacks - only used for verified users
-const MUTUALS_FALLBACKS = {
-  en: {
-    morning: { 
-      weekday: [
-        "morning, happy to connect btw",
-        "gm, mutuals? 👀",
-        "gm, down to connect btw",
-        "gm lets be mutuals tho",
-        "morning, follow back? 🤝"
-      ],
-      weekend: [
-        "morning, happy to connect btw ✌️",
-        "gm, lets be mutuals tho",
-        "gm, down to connect btw",
-        "gm, mutuals? 👀"
-      ] 
-    },
-    night: { 
-      weekday: [
-        "good night, happy to connect btw",
-        "gn, mutuals?",
-        "good night, down to connect btw ✌️",
-        "gn, lets be mutuals tho"
-      ],
-      weekend: [
-        "good night, lets be mutuals tho",
-        "sleep well, happy to connect btw",
-        "gn, mutuals? 👀",
-        "gn, down to connect btw"
-      ] 
-    }
-  }
-};
-
 // Build system prompt based on language and context
 function buildSystemPrompt({ lang, partOfDay, weekend, allowEmoji }) {
   const emojiStyle = allowEmoji ? "allow 0-1 emoji" : "no emoji";
@@ -160,25 +125,13 @@ If sensitive or off-topic, output exactly: SKIP.
 No hashtags unless the original uses them.`;
 }
 
-// Get fallback reply - only includes mutuals suggestions if eligible (verified AND not already following)
-function getFallbackReply(lang, partOfDay, weekend, canSuggestMutuals = false) {
+// Get fallback reply - simple positive casual messages
+function getFallbackReply(lang, partOfDay, weekend) {
   const langFallbacks = FALLBACKS[lang] || FALLBACKS.en;
   const timeOfDay = partOfDay === 'unknown' ? 'morning' : partOfDay;
   const timeSlot = weekend ? 'weekend' : 'weekday';
   
-  // Base options without mutuals suggestions
-  let options = langFallbacks[timeOfDay]?.[timeSlot] || langFallbacks.morning.weekday;
-  
-  // Only use mutuals-friendly messages if eligible (verified AND we don't already follow them)
-  // 40% chance when eligible
-  if (canSuggestMutuals && Math.random() < 0.4) {
-    const mutualsLangFallbacks = MUTUALS_FALLBACKS[lang] || MUTUALS_FALLBACKS.en;
-    const mutualsOptions = mutualsLangFallbacks[timeOfDay]?.[timeSlot];
-    if (mutualsOptions && mutualsOptions.length > 0) {
-      options = mutualsOptions;
-    }
-  }
-  
+  const options = langFallbacks[timeOfDay]?.[timeSlot] || langFallbacks.morning.weekday;
   return options[Math.floor(Math.random() * options.length)];
 }
 
@@ -402,32 +355,24 @@ const PERSONALITIES = {
 1. ALL LOWERCASE. No capital letters ever. Not even for "I" or starting sentences.
 2. Keep under 12 words. Be concise.
 3. No perfect punctuation. Skip periods at the end. Commas are fine.
-4. EMOJI: Randomly decide - sometimes use one emoji, sometimes none. Mix it up. Pick randomly from: 👀 ✌️ 🤝 ☕ 😂 🙏 💯. NEVER use 🔥💪⚡🚀. Vary your choice each time.
+4. EMOJI: Randomly decide - sometimes use one emoji, sometimes none. Mix it up. Pick randomly from: ✌️ ☕ 😂 🙏 💯. NEVER use 🔥💪⚡🚀. Vary your choice each time.
 5. Sound like a normal person scrolling twitter, not a motivational poster.
-6. About 40% of the time, include a subtle hint about connecting/mutuals. Vary these naturally:
-   - "happy to connect btw"
-   - "mutuals?"
-   - "lets be mutuals"
-   - "down to connect"
-   - "follow back?"
-   - "building my timeline with good people"
-7. Be warm but not over-the-top. Relatable > motivational.
-8. Normal abbreviations only: btw, rn, tho, lol - don't overdo it
+6. Be warm but not over-the-top. Relatable > motivational.
+7. Normal abbreviations only: btw, rn, tho, lol - don't overdo it
+8. NEVER mention mutuals, connecting, following, or networking. Just be friendly.
 9. If the tweet is sensitive/negative/controversial, output exactly: SKIP
 
 Good examples (mix of emoji and no emoji):
 - "gm hope today treats you well"
-- "morning, happy to connect btw 🤝"
 - "gm gm have a good one"
 - "night night sleep well"
-- "gm, mutuals? 👀"
 - "hope you get some rest"
 - "gm coffee is calling ☕"
-- "good night, lets be mutuals tho"
 - "gm have a solid day 🙏"
-- "night, down to connect btw"
 - "gm gm ✌️"
-- "gn, rest up"`
+- "gn, rest up"
+- "morning, have a great one"
+- "gn sleep tight"`
   },
 
   friendly: {
@@ -792,38 +737,18 @@ async function generateReply(tweet, useTestMode = false, config = {}) {
       ? config.forceTime === 'weekend' 
       : isWeekend(tweet.created_at);
     const allowEmoji = hasEmoji(tweet.text);
-    const isVerified = config.isVerified || false;
-    const isFollowing = config.isFollowing || false;
     
-    // Only suggest mutuals if: user is verified AND we don't already follow them
-    const canSuggestMutuals = isVerified && !isFollowing;
-    
-    console.log(`🌍 Context: lang=${lang} part=${partOfDay} weekend=${weekend} allowEmoji=${allowEmoji} verified=${isVerified} following=${isFollowing} canSuggestMutuals=${canSuggestMutuals}`);
+    console.log(`🌍 Context: lang=${lang} part=${partOfDay} weekend=${weekend} allowEmoji=${allowEmoji}`);
     
     if (useTestMode) {
-      // For test mode, use fallback system which respects mutuals eligibility
-      const testReply = getFallbackReply(lang, partOfDay, weekend, canSuggestMutuals);
-      console.log(`🧪 Using test reply (test mode enabled, canSuggestMutuals=${canSuggestMutuals})`);
+      const testReply = getFallbackReply(lang, partOfDay, weekend);
+      console.log(`🧪 Using test reply (test mode enabled)`);
       return testReply;
     }
     
     // Use personality prompt (casual by default)
     const personality = PERSONALITIES[CURRENT_PERSONALITY] || PERSONALITIES.casual;
-    let systemPrompt = personality.prompt;
-    
-    // Modify prompt to exclude mutuals suggestions if not eligible
-    // (not verified OR we already follow them)
-    if (!canSuggestMutuals) {
-      systemPrompt = systemPrompt.replace(
-        /About 40% of the time, include a subtle hint about connecting\/mutuals\.[^]*?- "building my timeline with good people"/,
-        'Do NOT mention mutuals, connecting, or following. Just be friendly and supportive without any networking suggestions.'
-      );
-      if (isFollowing) {
-        console.log('🚫 Already following this user: excluding mutuals suggestions');
-      } else {
-        console.log('🚫 Non-verified user: excluding mutuals suggestions');
-      }
-    }
+    const systemPrompt = personality.prompt;
     
     // Use real OpenAI API
     console.log(`🤖 Generating AI reply (${personality.name})...`);
@@ -1060,20 +985,19 @@ async function runModeB(config, storage) {
       continue;
     }
     
+    // Only reply to NEW audience - skip if we follow them or they follow us
+    if (tweet.priority?.isFollower || tweet.priority?.isFollowing) {
+      console.log(`⏭️  Skipping ${tweet.id}: already connected (follower=${tweet.priority?.isFollower} following=${tweet.priority?.isFollowing})`);
+      continue;
+    }
+    
     const skipResult = shouldSkipTweet(tweet);
     if (skipResult.skip) {
       console.log(`⏭️  Skipping ${tweet.id}: ${skipResult.reason}`);
       continue;
     }
     
-    // Pass verification and following status to generateReply so it knows whether to suggest mutuals
-    // Only suggest mutuals if: verified AND we don't already follow them
-    const replyConfig = { 
-      ...config, 
-      isVerified: tweet.priority?.isVerified || false,
-      isFollowing: tweet.priority?.isFollowing || false
-    };
-    const replyText = await generateReply(tweet, config.testMode, replyConfig);
+    const replyText = await generateReply(tweet, config.testMode, config);
     if (!replyText || replyText === 'SKIP') {
       console.log(`⏭️  No suitable reply generated for ${tweet.id}`);
       continue;
