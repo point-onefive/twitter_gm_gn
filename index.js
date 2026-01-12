@@ -770,7 +770,9 @@ async function generateReply(tweet, useTestMode = false, config = {}) {
 
     const reply = response.choices[0]?.message?.content?.trim() || '';
     
-    if (!reply || reply === 'SKIP' || reply.length > 140) {
+    // Check for SKIP (case-insensitive) or variations like "Skip.", "skip", etc.
+    const isSkip = !reply || reply.length > 140 || /^skip\.?$/i.test(reply);
+    if (isSkip) {
       console.log('🔄 AI reply was SKIP or invalid, skipping tweet...');
       return 'SKIP';
     }
@@ -998,7 +1000,8 @@ async function runModeB(config, storage) {
     }
     
     const replyText = await generateReply(tweet, config.testMode, config);
-    if (!replyText || replyText === 'SKIP') {
+    // Check for SKIP (case-insensitive) to catch variations like "skip", "Skip.", etc.
+    if (!replyText || /^skip\.?$/i.test(replyText)) {
       console.log(`⏭️  No suitable reply generated for ${tweet.id}`);
       continue;
     }
