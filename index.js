@@ -58,7 +58,7 @@ const FALLBACKS = {
         "gm hope it goes well",
         "gm lets get it",
         "gm have a good one",
-        "morning ☕",
+        "morning, hope its a good one",
         "gm hope its a good one",
         "morning, have a great day",
         "gm gm lets go"
@@ -296,6 +296,14 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
   const authorId = tweet.author_id;
   const user = userById[authorId];
   const followersCount = user?.public_metrics?.followers_count || 0;
+  
+  // Tweet engagement metrics
+  const tweetMetrics = tweet.public_metrics || {};
+  const likeCount = tweetMetrics.like_count || 0;
+  const retweetCount = tweetMetrics.retweet_count || 0;
+  const replyCount = tweetMetrics.reply_count || 0;
+  const engagementScore = likeCount + (retweetCount * 2) + replyCount; // Weight retweets higher
+  
   // Check for X Premium/verified status via verified_type (blue, business, government)
   // Also fall back to legacy verified field for compatibility
   const isVerified = user?.verified_type === 'blue' || 
@@ -322,15 +330,20 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
   } else if (isFollowing) {
     bucket = 3;
     bucketName = "following";
+  } else if (engagementScore >= 5) {
+    // High engagement tweets get priority even from non-connections
+    bucket = 4;
+    bucketName = "high-engagement";
   } else if (followersCount >= minFollowers) {
     bucket = 4;
     bucketName = "high-reach";
   }
   
   // Strategic filtering: skip very low-value targets when we have limited slots
-  const isLowValue = followersCount < 50 && bucket > 4 && !isVerified;
+  const isLowValue = followersCount < 50 && bucket > 4 && !isVerified && engagementScore < 2;
   
-  const secondary = -followersCount; // Higher follower count first (negative for ASC sort)
+  // Secondary sort: combine follower count and engagement for better ranking
+  const secondary = -(followersCount + (engagementScore * 100)); // Engagement weighted heavily
   const createdAt = Date.parse(tweet.created_at || 0);
   
   return { 
@@ -339,6 +352,9 @@ function calculatePriority(tweet, userById, followersSet, followingSet, minFollo
     secondary, 
     createdAt,
     followersCount,
+    engagementScore,
+    likeCount,
+    retweetCount,
     isFollower,
     isFollowing,
     isLowValue,
@@ -352,24 +368,24 @@ const PERSONALITIES = {
     name: "Casual & Human",
     prompt: `You write casual, human-sounding replies to gm/gn tweets. CRITICAL RULES:
 
-1. ALL LOWERCASE. No capital letters ever. Not even for "I" or starting sentences.
+1. ALL LOWERCASE. No capital letters ever. Not even for "i" or starting sentences.
 2. Keep under 12 words. Be concise.
 3. No perfect punctuation. Skip periods at the end. Commas are fine.
-4. EMOJI: Randomly decide - sometimes use one emoji, sometimes none. Mix it up. Pick randomly from: ✌️ ☕ 😂 🙏 💯. NEVER use 🔥💪⚡🚀. Vary your choice each time.
+4. NEVER use emojis. Not a single one. Plain text only.
 5. Sound like a normal person scrolling twitter, not a motivational poster.
 6. Be warm but not over-the-top. Relatable > motivational.
 7. Normal abbreviations only: btw, rn, tho, lol - don't overdo it
 8. NEVER mention mutuals, connecting, following, or networking. Just be friendly.
 9. If the tweet is sensitive/negative/controversial, output exactly: SKIP
 
-Good examples (mix of emoji and no emoji):
+Good examples:
 - "gm hope today treats you well"
 - "gm gm have a good one"
 - "night night sleep well"
 - "hope you get some rest"
-- "gm coffee is calling ☕"
-- "gm have a solid day 🙏"
-- "gm gm ✌️"
+- "gm coffee is calling"
+- "gm have a solid day"
+- "gm gm"
 - "gn, rest up"
 - "morning, have a great one"
 - "gn sleep tight"`
@@ -847,8 +863,9 @@ async function runModeB(config, storage) {
       const searchParams = {
         query: '(gm OR gn) -is:reply -is:retweet lang:en',
         max_results: 15,
+        sort_order: 'relevancy', // Prioritize higher engagement tweets
         expansions: ['author_id'],
-        'tweet.fields': ['author_id', 'created_at', 'text'],
+        'tweet.fields': ['author_id', 'created_at', 'text', 'public_metrics'],
         'user.fields': ['public_metrics', 'verified', 'verified_type']
       };
       
@@ -955,9 +972,9 @@ async function runModeB(config, storage) {
   for (const tweet of tweets) {
     if (repliedCount >= config.limit) break;
     
-    // Show priority information
+    // Show priority information with engagement metrics
     const priorityInfo = tweet.priority 
-      ? `prio[${tweet.priority.bucket}:${tweet.priority.bucketName}] followers=${tweet.priority.followersCount} followerOfMe=${tweet.priority.isFollower} verified=${tweet.priority.isVerified} tweet=${tweet.id}`
+      ? `prio[${tweet.priority.bucket}:${tweet.priority.bucketName}] followers=${tweet.priority.followersCount} engagement=${tweet.priority.engagementScore} likes=${tweet.priority.likeCount} rts=${tweet.priority.retweetCount} followerOfMe=${tweet.priority.isFollower} verified=${tweet.priority.isVerified} tweet=${tweet.id}`
       : `tweet=${tweet.id}`;
     
     console.log(`📱 Processing ${priorityInfo}: "${tweet.text}"`);
